@@ -4,6 +4,7 @@ import { listFeatureNames, featureDescription, readManifest, readMeta, featureRe
 import { projectFeatureDir, addFeatures } from "../lib/vendor.js";
 import { installedFeatureDirNames, runAllTests, reportTestResults } from "../lib/tests.js";
 import { checkUpdates, applyUpdates, type UpdateInfo } from "../lib/update.js";
+import { markBuildNeeded } from "../lib/build.js";
 import {
   readDevcontainerJson,
   writeDevcontainerJson,
@@ -163,9 +164,12 @@ export async function cmdConfig(nameArg?: string): Promise<void> {
   const name = nameArg ?? (await pickFeature());
   if (!name) return;
 
+  let anyMutation = false;
+
   if (!isVendored(name)) {
     console.log(`${name} isn't vendored yet, adding it (and its dependencies)...`);
-    cmdAdd([name]);
+    await cmdAdd([name]);
+    anyMutation = true;
     await runTestSweep();
   }
 
@@ -182,7 +186,7 @@ export async function cmdConfig(nameArg?: string): Promise<void> {
       ],
     });
 
-    if (!action || action === "done") return;
+    if (!action || action === "done") break;
 
     let mutated = false;
     if (action === "edit") mutated = await editOptions(name);
@@ -190,11 +194,17 @@ export async function cmdConfig(nameArg?: string): Promise<void> {
     else if (action === "delete") {
       mutated = await deleteFeature(name);
       if (mutated) {
+        anyMutation = true;
         await runTestSweep();
-        return;
+        break;
       }
     }
 
-    if (mutated) await runTestSweep();
+    if (mutated) {
+      anyMutation = true;
+      await runTestSweep();
+    }
   }
+
+  if (anyMutation) markBuildNeeded();
 }

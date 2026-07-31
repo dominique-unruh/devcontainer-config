@@ -1,6 +1,7 @@
 import prompts from "prompts";
 import { checkUpdates, applyUpdates, listStaleInstalledFeatures, type UpdateInfo } from "../lib/update.js";
 import { installedFeatureDirNames, runAllTests, reportTestResults } from "../lib/tests.js";
+import { markBuildNeeded } from "../lib/build.js";
 
 function short(hash: string | undefined): string {
   return hash ? hash.slice(0, 12) : "(none)";
@@ -47,4 +48,6 @@ export async function cmdUpdate(names: string[], opts: { all?: boolean }): Promi
 
   console.log("Running full test sweep...");
   reportTestResults(await runAllTests());
+
+  markBuildNeeded();
 }

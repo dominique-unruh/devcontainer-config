@@ -2,6 +2,10 @@
 set -euo pipefail
 export PATH="${HOME}/.local/bin:/usr/local/bin:${PATH}"
 
+# Marketplace repo is public; force https instead of ssh so the clone
+# works even without an SSH key/agent available inside the container.
+git config --global url."https://github.com/".insteadOf "git@github.com:"
+
 claude plugin marketplace add JuliusBrussee/caveman
 claude plugin install caveman@caveman
 

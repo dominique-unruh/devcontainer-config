@@ -7,6 +7,7 @@ import {
 } from "../lib/paths.js";
 import { writeDevcontainerJson } from "../lib/devcontainerJson.js";
 import { addFeatures } from "../lib/vendor.js";
+import { markBuildNeeded } from "../lib/build.js";
 import type { DevcontainerJson } from "../lib/types.js";
 
 // Some features (e.g. claude) symlink container state they want to survive
@@ -23,7 +24,7 @@ function ensurePersistentIgnored(): void {
   writeFileSync(DEVCONTAINER_GITIGNORE, `${existing}${separator}persistent/\n`);
 }
 
-export function cmdInit(): void {
+export async function cmdInit(): Promise<void> {
   mkdirSync(DEVCONTAINER_DIR, { recursive: true });
   mkdirSync(PROJECT_FEATURES_DIR, { recursive: true });
   ensurePersistentIgnored();
@@ -47,4 +48,6 @@ export function cmdInit(): void {
   for (const name of result.copied) {
     console.log(`added ${name}`);
   }
+
+  markBuildNeeded();
 }

@@ -5,7 +5,7 @@ set -euo pipefail
 # into settings.json without clobbering other keys — installed here since
 # that runs as remoteUser, no sudo. (apt dep feature already ran apt-get
 # update.)
-apt-get install --no-install-recommends -y jq
+apt-get install --no-install-recommends -y jq git
 
 # Marketplace/plugin install needs the real remoteUser's $HOME, not root's
 # (install.sh runs as root at build time) — done in postCreateCommand

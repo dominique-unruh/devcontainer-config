@@ -1,7 +1,8 @@
 import { addFeatures } from "../lib/vendor.js";
 import { featureDescription } from "../lib/featureSource.js";
+import { markBuildNeeded } from "../lib/build.js";
 
-export function cmdAdd(names: string[]): void {
+export async function cmdAdd(names: string[]): Promise<void> {
   const result = addFeatures(names);
 
   for (const { name, requiredBy } of result.resolved) {
@@ -12,4 +13,6 @@ export function cmdAdd(names: string[]): void {
   for (const name of result.alreadyPresent) {
     console.log(`${name}: already present, skipped`);
   }
+
+  if (result.copied.length > 0) markBuildNeeded();
 }

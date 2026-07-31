@@ -5,6 +5,7 @@ import { cmdConfig } from "./commands/config.js";
 import { cmdCheck } from "./commands/check.js";
 import { cmdUpdate } from "./commands/update.js";
 import { listFeatureNames, featureDescription } from "./lib/featureSource.js";
+import { buildIfNeeded } from "./lib/build.js";
 
 const program = new Command();
 program.name("devcontainer-config").description("Scaffold and vendor composable devcontainer Features into a project.");
@@ -44,6 +45,7 @@ program
 
 try {
   await program.parseAsync();
+  if (!(await buildIfNeeded())) process.exitCode = 1;
 } catch (err) {
   console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
