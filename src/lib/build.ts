@@ -21,16 +21,16 @@ export function markBuildNeeded(): void {
   buildNeeded = true;
 }
 
-function runDevcontainerBuild(): Promise<{ ok: boolean; output: string }> {
+function runDevcontainerUp(): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
-    const child = spawn(DEVCONTAINER_BIN, ["build", "--workspace-folder", "."], {
+    const child = spawn(DEVCONTAINER_BIN, ["up", "--remove-existing-container", "--workspace-folder", "."], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout.on("data", (chunk) => chunks.push(chunk));
     child.stderr.on("data", (chunk) => chunks.push(chunk));
     child.on("error", (err) => {
-      chunks.push(Buffer.from(`error: failed to run devcontainer build: ${err instanceof Error ? err.message : String(err)}\n`));
+      chunks.push(Buffer.from(`error: failed to run devcontainer up: ${err instanceof Error ? err.message : String(err)}\n`));
       resolve({ ok: false, output: Buffer.concat(chunks).toString("utf8") });
     });
     child.on("exit", (code) => resolve({ ok: code === 0, output: Buffer.concat(chunks).toString("utf8") }));
@@ -48,15 +48,15 @@ export async function buildIfNeeded(): Promise<boolean> {
   const { confirmed } = await prompts({
     type: "confirm",
     name: "confirmed",
-    message: "Build devcontainer now to verify?",
+    message: "Rebuild devcontainer now to verify?",
     initial: true,
   });
   if (!confirmed) return true;
 
-  const { ok, output } = await runDevcontainerBuild();
+  const { ok, output } = await runDevcontainerUp();
   if (!ok) {
     process.stdout.write(output);
-    console.error("error: devcontainer build failed");
+    console.error("error: devcontainer up failed");
   }
   return ok;
 }
