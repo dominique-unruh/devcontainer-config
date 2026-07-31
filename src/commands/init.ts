@@ -43,8 +43,10 @@ export async function cmdInit(): Promise<void> {
 
   // Plain ubuntu:24.04 ships no non-root user (unlike
   // mcr.microsoft.com/devcontainers/base:ubuntu) — "user" is the one
-  // feature every project needs, so init wires it in directly.
-  const result = addFeatures(["user"]);
+  // feature every project needs, so init wires it in directly. "timezone"
+  // defaults on too — logs/timestamps matching the host is the sane
+  // default, not something worth opting into per project.
+  const result = addFeatures(["user", "timezone"]);
   for (const name of result.copied) {
     console.log(`added ${name}`);
   }

@@ -12,6 +12,7 @@
     "./features/caveman": {
       "mode": "ultra"
     },
-    "./features/apt": {}
+    "./features/apt": {},
+    "ghcr.io/hwaien/devcontainer-features/match-host-time-zone": {}
   }
 }

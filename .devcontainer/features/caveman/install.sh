@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from <no remote>, dir features/caveman, content-hash 421c26d0bff0bea06dfc12e08d3c4b23dd17ca2f523991dac90af36a6d15eed6
+# Installed using devcontainer-config from https://github.com/dominique-unruh/devcontainer-config.git, dir features/caveman, content-hash c084e32554f884e09ac1d7be42cbf9ada6a1cd222ba658d98e4bda18afbb41d5
 set -euo pipefail
 
 # jq needed at postCreateCommand time (configure.sh) to merge statusLine
 # into settings.json without clobbering other keys — installed here since
 # that runs as remoteUser, no sudo. (apt dep feature already ran apt-get
 # update.)
-apt-get install --no-install-recommends -y jq
+apt-get install --no-install-recommends -y jq git
 
 # Marketplace/plugin install needs the real remoteUser's $HOME, not root's
 # (install.sh runs as root at build time) — done in postCreateCommand
