@@ -1,0 +1,12 @@
+{
+  "id": "lean",
+  "version": "1.0.0",
+  "name": "Lean 4 (elan)",
+  "description": "Installs elan system-wide (build-time, cached) and the toolchain pinned by ./lean-toolchain in the mounted repo, if present (runtime, uncached).",
+  "options": {},
+  "containerEnv": {
+    "ELAN_HOME": "/usr/local/lean/elan",
+    "PATH": "/usr/local/lean/elan/bin:${PATH}"
+  },
+  "postCreateCommand": "/usr/local/share/devcontainer-config/lean/configure.sh"
+}

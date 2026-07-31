@@ -1,0 +1,30 @@
+{
+  "name": "devcontainer-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Composable devcontainer Features + a CLI to scaffold and vendor them into a project, analogous to ../vagrant-config for Vagrant.",
+  "type": "module",
+  "bin": {
+    "devcontainer-config": "./dist/devcontainer-config"
+  },
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --packages=external --platform=node --format=esm --outfile=dist/devcontainer-config --banner:js=\"#!/usr/bin/env node\" && chmod +x dist/devcontainer-config",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/prompts": "^2.4.9",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "prompts": "^2.4.2"
+  },
+  "allowScripts": {
+    "esbuild@0.24.2": true,
+    "esbuild@0.28.1": true
+  }
+}

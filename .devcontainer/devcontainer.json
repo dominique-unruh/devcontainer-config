@@ -1,0 +1,17 @@
+{
+  "image": "ubuntu:24.04",
+  "remoteUser": "dev",
+  "features": {
+    "./features/user": {
+      "username": "dev"
+    },
+    "ghcr.io/devcontainers/features/node:1": {},
+    "./features/claude": {
+      "dangerousPermissions": true
+    },
+    "./features/caveman": {
+      "mode": "ultra"
+    },
+    "./features/apt": {}
+  }
+}
