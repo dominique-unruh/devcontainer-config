@@ -8,7 +8,7 @@
     "devcontainer-config": "./dist/devcontainer-config"
   },
   "scripts": {
-    "build": "esbuild src/cli.ts --bundle --packages=external --platform=node --format=esm --outfile=dist/devcontainer-config --banner:js=\"#!/usr/bin/env node\" && chmod +x dist/devcontainer-config",
+    "build": "esbuild src/cli.ts --bundle --packages=external --platform=node --format=esm --outfile=dist/devcontainer-config --banner:js=\"$(cat scripts/banner.txt)\" && chmod +x dist/devcontainer-config",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/cli.ts"
   },

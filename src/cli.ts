@@ -6,6 +6,20 @@ import { cmdCheck } from "./commands/check.js";
 import { cmdUpdate } from "./commands/update.js";
 import { listFeatureNames, featureDescription } from "./lib/featureSource.js";
 import { buildIfNeeded } from "./lib/build.js";
+import { tryHandleCompletion, type CompletionSpec } from "./lib/completion.js";
+
+tryHandleCompletion(
+  {
+    subcommands: [
+      { name: "init", positionals: "none" },
+      { name: "add", positionals: "variadic" },
+      { name: "config", positionals: "single" },
+      { name: "check", positionals: "none" },
+      { name: "update", options: ["--all"], positionals: "variadic" },
+    ],
+  } satisfies CompletionSpec,
+  listFeatureNames,
+);
 
 const program = new Command();
 program.name("devcontainer-config").description("Scaffold and vendor composable devcontainer Features into a project.");
