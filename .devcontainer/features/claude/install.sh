@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from <no remote>, dir features/claude, content-hash 26ca75469fc51cf0f0bd03d957c5610098fb3261478488186aee2d6db51c7efd
+# Installed using devcontainer-config from <no remote>, dir features/claude, content-hash 57f101879889ff54e3199be135b1eaa255729684727bfaf13ae2b07bfd08aa6d
 set -euo pipefail
 
 # settings.json merge in configure.sh needs jq, and needs the real

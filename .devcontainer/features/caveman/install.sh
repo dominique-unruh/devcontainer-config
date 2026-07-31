@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from <no remote>, dir features/caveman, content-hash be88c04adbe7b7159c2bc013e07a70b9b43a714fe6c5a9e54b972898389165ab
+# Installed using devcontainer-config from <no remote>, dir features/caveman, content-hash 421c26d0bff0bea06dfc12e08d3c4b23dd17ca2f523991dac90af36a6d15eed6
 set -euo pipefail
 
 # jq needed at postCreateCommand time (configure.sh) to merge statusLine

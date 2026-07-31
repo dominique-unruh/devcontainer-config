@@ -29,4 +29,5 @@ export const SOURCE_FEATURES_DIR = path.join(REPO_DIR, "features");
 
 export const DEVCONTAINER_DIR = ".devcontainer";
 export const DEVCONTAINER_JSON = path.join(DEVCONTAINER_DIR, "devcontainer.json");
+export const DEVCONTAINER_GITIGNORE = path.join(DEVCONTAINER_DIR, ".gitignore");
 export const PROJECT_FEATURES_DIR = path.join(DEVCONTAINER_DIR, "features");
