@@ -47,9 +47,19 @@ export interface ExternalFeatureRef {
   options?: Record<string, FeatureOptionSchema>;
 }
 
+export interface FeatureCommandSpec {
+  help: string;
+  shell: string;
+}
+
 export interface FeatureMeta {
   deps?: string[];
   tests?: TestSpec[];
+  // Shortcuts this feature wants exposed as top-level devcontainer-config
+  // subcommands, e.g. commands: { claude: { help: "...", shell: "claude" } }
+  // makes `devcontainer-config claude <args...>` run `claude <args...>`
+  // inside the devcontainer (via cmdRun, starting it first if needed).
+  commands?: Record<string, FeatureCommandSpec>;
   external?: ExternalFeatureRef;
   // Only present on a *vendored* copy (never in the source repo's own
   // meta.json) — where install.sh's provenance-comment trick doesn't

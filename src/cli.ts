@@ -9,6 +9,9 @@ import { cmdStop } from "./commands/stop.js";
 import { listFeatureNames, featureDescription } from "./lib/featureSource.js";
 import { buildIfNeeded } from "./lib/build.js";
 import { tryHandleCompletion, type CompletionSpec } from "./lib/completion.js";
+import { collectFeatureCommands } from "./lib/featureCommands.js";
+
+const featureCommands = collectFeatureCommands();
 
 tryHandleCompletion(
   {
@@ -20,6 +23,7 @@ tryHandleCompletion(
       { name: "update", options: ["--all"], positionals: "variadic" },
       { name: "run", positionals: "none" },
       { name: "stop", positionals: "none" },
+      ...featureCommands.map((c) => ({ name: c.name, positionals: "variadic" as const })),
     ],
   } satisfies CompletionSpec,
   listFeatureNames,
@@ -76,6 +80,19 @@ program
   .command("stop")
   .description("shut down the running devcontainer (docker stop), no-op if not running")
   .action(() => cmdStop());
+
+// Installed features' meta.json `commands` entries (e.g. `claude`'s own
+// `claude` command) — each is `cmdRun`'s exec-with-autostart, but with the
+// feature's own command string prepended to whatever args the user passes.
+for (const { name, help, shell, featureName } of featureCommands) {
+  program
+    .command(name)
+    .description(`${help} [from feature "${featureName}"]`)
+    .argument("[args...]", "extra arguments appended to the command")
+    .allowUnknownOption()
+    .passThroughOptions()
+    .action((args: string[]) => cmdRun([...shell.split(/\s+/).filter(Boolean), ...args]));
+}
 
 try {
   await program.parseAsync();
