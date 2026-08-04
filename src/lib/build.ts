@@ -48,7 +48,7 @@ export async function buildIfNeeded(): Promise<boolean> {
   const { confirmed } = await prompts({
     type: "confirm",
     name: "confirmed",
-    message: "Rebuild devcontainer now to verify?",
+    message: "Rebuild devcontainer now?",
     initial: true,
   });
   if (!confirmed) return true;
