@@ -8,7 +8,7 @@ import { REPO_DIR } from "./paths.js";
 // commander/prompts, not inlined into dist/devcontainer-config — the
 // binary always lives under this repo's own node_modules/.bin regardless
 // of the current project's PATH.
-const DEVCONTAINER_BIN = path.join(REPO_DIR, "node_modules", ".bin", "devcontainer");
+export const DEVCONTAINER_BIN = path.join(REPO_DIR, "node_modules", ".bin", "devcontainer");
 
 // Commands mark this when they mutate the project's devcontainer config,
 // instead of building themselves — cli.ts checks it once after the command
