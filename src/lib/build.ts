@@ -49,7 +49,7 @@ export async function buildIfNeeded(): Promise<boolean> {
     type: "confirm",
     name: "confirmed",
     message: "Rebuild devcontainer now?",
-    initial: true,
+    initial: false,
   });
   if (!confirmed) return true;
 
