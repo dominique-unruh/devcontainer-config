@@ -5,7 +5,7 @@ import { featureSourceDir, featureRefFor, readManifest, readMeta, readInstallSh 
 import { buildHeaderLine, hashDirectory, hashFile, isManaged, withProvenanceHeader } from "./provenance.js";
 import { sourceRemote } from "./git.js";
 import { resolveDeps, type ResolvedDep } from "./deps.js";
-import { readDevcontainerJson, writeDevcontainerJson, isFeatureInstalled, setFeatureOptions } from "./devcontainerJson.js";
+import { loadDevcontainerDocument, writeDevcontainerDocument, isFeatureInstalled } from "./devcontainerJson.js";
 import type { FeatureOptionSchema } from "./types.js";
 
 export function projectFeatureDir(name: string): string {
@@ -134,7 +134,7 @@ export interface AddResult {
 // already-installed feature's existing options are left untouched.
 export function addFeatures(names: string[]): AddResult {
   const resolved = resolveDeps(names);
-  const config = readDevcontainerJson();
+  const doc = loadDevcontainerDocument();
   const copied: string[] = [];
   const alreadyPresent: string[] = [];
 
@@ -146,12 +146,12 @@ export function addFeatures(names: string[]): AddResult {
     const srcDir = featureSourceDir(name);
     const meta = readMeta(srcDir);
     const ref = featureRefFor(name, meta);
-    if (!isFeatureInstalled(config, ref)) {
+    if (!isFeatureInstalled(doc.config, ref)) {
       const manifest = readManifest(srcDir, meta);
-      setFeatureOptions(config, ref, defaultOptions(manifest.options));
+      doc.setFeatureOptions(ref, defaultOptions(manifest.options));
     }
   }
 
-  writeDevcontainerJson(config);
+  writeDevcontainerDocument(doc);
   return { resolved, copied, alreadyPresent };
 }

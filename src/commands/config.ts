@@ -6,11 +6,9 @@ import { installedFeatureDirNames, runAllTests, reportTestResults } from "../lib
 import { checkUpdates, applyUpdates, type UpdateInfo } from "../lib/update.js";
 import { markBuildNeeded } from "../lib/build.js";
 import {
-  readDevcontainerJson,
-  writeDevcontainerJson,
+  loadDevcontainerDocument,
+  writeDevcontainerDocument,
   getFeatureOptions,
-  setFeatureOptions,
-  removeFeature,
 } from "../lib/devcontainerJson.js";
 import { cmdAdd } from "./add.js";
 
@@ -61,8 +59,8 @@ async function editOptions(name: string): Promise<boolean> {
   }
 
   const ref = featureRefFor(name, meta);
-  const config = readDevcontainerJson();
-  const current = getFeatureOptions(config, ref);
+  const doc = loadDevcontainerDocument();
+  const current = getFeatureOptions(doc.config, ref);
   const next: Record<string, unknown> = { ...current };
 
   for (const [key, schema] of optionEntries) {
@@ -100,8 +98,8 @@ async function editOptions(name: string): Promise<boolean> {
     }
   }
 
-  setFeatureOptions(config, ref, next);
-  writeDevcontainerJson(config);
+  doc.setFeatureOptions(ref, next);
+  writeDevcontainerDocument(doc);
   console.log(`updated options for ${name}`);
   return true;
 }
@@ -150,9 +148,9 @@ async function deleteFeature(name: string): Promise<boolean> {
   const dir = projectFeatureDir(name);
   const ref = featureRefFor(name, readMeta(dir));
   rmSync(dir, { recursive: true, force: true });
-  const config = readDevcontainerJson();
-  removeFeature(config, ref);
-  writeDevcontainerJson(config);
+  const doc = loadDevcontainerDocument();
+  doc.removeFeature(ref);
+  writeDevcontainerDocument(doc);
   console.log(`deleted ${name}`);
   return true;
 }
