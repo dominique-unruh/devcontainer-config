@@ -6,6 +6,7 @@ import { cmdCheck } from "./commands/check.js";
 import { cmdUpdate } from "./commands/update.js";
 import { cmdRun } from "./commands/run.js";
 import { cmdStop } from "./commands/stop.js";
+import { cmdRebuild } from "./commands/rebuild.js";
 import { listFeatureNames, featureDescription } from "./lib/featureSource.js";
 import { buildIfNeeded } from "./lib/build.js";
 import { tryHandleCompletion, type CompletionSpec } from "./lib/completion.js";
@@ -23,6 +24,7 @@ tryHandleCompletion(
       { name: "update", options: ["--all"], positionals: "variadic" },
       { name: "run", positionals: "none" },
       { name: "stop", positionals: "none" },
+      { name: "rebuild", positionals: "none" },
       ...featureCommands.map((c) => ({ name: c.name, positionals: "variadic" as const })),
     ],
   } satisfies CompletionSpec,
@@ -80,6 +82,11 @@ program
   .command("stop")
   .description("shut down the running devcontainer (docker stop), no-op if not running")
   .action(() => cmdStop());
+
+program
+  .command("rebuild")
+  .description("rebuild the devcontainer (devcontainer up --remove-existing-container)")
+  .action(() => cmdRebuild());
 
 // Installed features' meta.json `commands` entries (e.g. `claude`'s own
 // `claude` command) — each is `cmdRun`'s exec-with-autostart, but with the

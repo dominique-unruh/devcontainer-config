@@ -37,11 +37,21 @@ function runDevcontainerUp(): Promise<{ ok: boolean; output: string }> {
   });
 }
 
+// Runs `devcontainer up --remove-existing-container`, swallowing the
+// devcontainer CLI's own output unless the build fails — a passing build
+// isn't interesting, a failing one needs the log to debug.
+export async function rebuild(): Promise<boolean> {
+  const { ok, output } = await runDevcontainerUp();
+  if (!ok) {
+    process.stdout.write(output);
+    console.error("error: devcontainer up failed");
+  }
+  return ok;
+}
+
 // Called once, at the very end of the overall CLI invocation. No-op unless
 // some command marked a mutation via markBuildNeeded(). Confirms with the
-// user first (a build is slow), and swallows the devcontainer CLI's own
-// output unless the build fails — a passing build isn't interesting, a
-// failing one needs the log to debug.
+// user first (a build is slow) before delegating to rebuild().
 export async function buildIfNeeded(): Promise<boolean> {
   if (!buildNeeded) return true;
 
@@ -53,10 +63,5 @@ export async function buildIfNeeded(): Promise<boolean> {
   });
   if (!confirmed) return true;
 
-  const { ok, output } = await runDevcontainerUp();
-  if (!ok) {
-    process.stdout.write(output);
-    console.error("error: devcontainer up failed");
-  }
-  return ok;
+  return rebuild();
 }
