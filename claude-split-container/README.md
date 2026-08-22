@@ -147,8 +147,42 @@ first). `run_bash_host`/`run_bash_container` additionally take
 
 The first command needing human approval opens a small standalone window
 showing the pending queue, with Approve/Reject (optionally with a note)
-per item. It's a local HTTP server bound to `127.0.0.1`, protected by a
-random key baked into the URL.
+per item. It's a local HTTP server bound to `127.0.0.1`.
+
+### How the dashboard authenticates
+
+Possession of dashboard access is equivalent to being able to approve
+host commands, so it has to be held to the user's own account. The
+browser is launched at a **one-time `file://` entry page**, written mode
+`0600` into `$XDG_RUNTIME_DIR` (a per-user tmpfs, already `0700`; falls
+back to a `mkdtemp` under the system temp dir). That page redirects
+through `/bootstrap?t=<token>`, which trades the token for an
+`HttpOnly; SameSite=Strict` session cookie and is then spent — the token
+is burned and the file deleted before the response is acted on.
+
+The indirection exists because **argv is world-readable on Linux**
+(`/proc/<pid>/cmdline`, mode 444). A secret passed in the browser's
+command line would be readable by every other account on the machine for
+as long as the browser ran, which is precisely the boundary the local
+bind and the random key are there to enforce. The launch URL therefore
+carries nothing useful: only a path, to a file only the user can read.
+
+Consequences worth knowing:
+
+- Nothing secret is readable from the dashboard page itself — the cookie
+  is `HttpOnly` and the page holds no token, so the API is reached on the
+  cookie alone.
+- `SameSite=Strict` blocks cross-site requests, so a hostile page cannot
+  drive Approve even if it learns the port.
+- The path of each entry file is recorded in
+  `.tmp/claude-split-container.log` (the path is not the secret), so the
+  dashboard can still be opened by hand if the window fails to launch.
+- Landing on `/` without a session gives an explanatory page rather than
+  a bare `401`.
+
+Still same-user-readable, by design: a process running as *you* can read
+the `0600` file — but it could equally `ptrace` the server or append to
+`~/.bashrc`, so that was never a boundary this could hold.
 
 The UI is tried in two steps, stopping at the first that works:
 
@@ -157,10 +191,12 @@ The UI is tried in two steps, stopping at the first that works:
 2. **Plain browser tab** — last resort, and the only case that raises a
    warning, since it's not the intended UI.
 
-If both fail, the tool call returns an error containing the URL rather
-than hanging — the command stays queued, so opening the URL by hand and
+If both fail, the tool call returns an error naming the entry file rather
+than hanging — the command stays queued, so opening that file by hand and
 approving still runs it, and `status`/`wait` on the returned id picks up
-the result.
+the result. The error names the *file*, never a URL carrying the token:
+that message goes to the model, which is the party the approval gate
+exists to constrain.
 
 (An earlier version bundled a native-webview binary as step 1. It was
 dropped: it linked `libwebkit2gtk-4.0`, an EOL library current distros

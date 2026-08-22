@@ -151,17 +151,22 @@ function openInBrowser(url: string): Promise<WindowLaunchResult> {
  * Show the dashboard in a standalone window (lazily — call this only once there's actually
  * something for a human to look at). Reuses an already-open window rather than spawning a second.
  *
+ * `mintUrl` is called only when a launch actually happens, since the dashboard's entry URL is
+ * single-use: minting one on a call that turns out to reuse an existing window would burn a
+ * token nobody ever opens.
+ *
  * Resolves only once the window has been observed to survive its first moments, so a caller can
  * tell the difference between "a window is up, the human will see this" and "nothing opened".
  * That distinction matters: without a window *and* without a caller-visible error, an
  * approval-gated tool call would block forever on approval that can never arrive.
  */
-export async function ensureWindowOpen(url: string): Promise<WindowLaunchResult> {
+export async function ensureWindowOpen(mintUrl: () => Promise<string>): Promise<WindowLaunchResult> {
   if (browserFallbackActive) return { ok: true, via: "browser" };
   if (child && child.exitCode === null && !child.killed) {
     return { ok: true, via: "app-window" };
   }
 
+  const url = await mintUrl();
   const appWindow = await tryAppModeWindow(url);
   if (appWindow.ok) {
     setUiStatus({ surface: "app-window" });

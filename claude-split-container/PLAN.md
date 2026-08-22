@@ -237,14 +237,22 @@ at MCP server startup (or lazily on first command), serving:
 - Built to grow: v1 is a plain list + two buttons per item; richer diff
   rendering etc. is additive later, not a rewrite.
 
-**Auth**: server generates a random key (e.g. 32 bytes, base64url) at
-startup. The URL it opens in the browser embeds it as a query param
-(`http://127.0.0.1:<port>/?key=<key>`); the dashboard page reads it from
-`location.search` and attaches it (as a header or query param) to every
-`/api/*` call. Any request missing/mismatching the key is rejected
-(401). Listens on `127.0.0.1` only (not `0.0.0.0`) as a second layer —
-the key is what stops another local user/process on a shared machine
-from hitting the API, the loopback bind is what stops the network.
+**Auth**: an `HttpOnly; SameSite=Strict` session cookie, obtained through
+a one-time `file://` entry page written mode `0600` into
+`$XDG_RUNTIME_DIR`. That page redirects through `/bootstrap?t=<token>`,
+which sets the cookie and immediately spends the token (burned, file
+deleted). Every other route requires the cookie; anything else is a 401.
+Listens on `127.0.0.1` only (not `0.0.0.0`) as a second layer — the
+cookie is what stops another local user/process on a shared machine from
+hitting the API, the loopback bind is what stops the network.
+
+> Superseded design: the original plan put a random key straight in the
+> launch URL (`http://127.0.0.1:<port>/?key=<key>`) and had the page read
+> it from `location.search`. That leaks the secret to every account on
+> the machine, because the URL is passed to the browser as a command-line
+> argument and argv is world-readable on Linux (`/proc/<pid>/cmdline`) —
+> defeating the exact threat the key existed for. The launch URL now
+> carries only a path; the secret lives in the file it points at.
 
 ## Package layout
 
@@ -268,7 +276,7 @@ claude-split-container/
       kill.ts
       running.ts
     ui/
-      dashboardServer.ts   # persistent local HTTP server (auth key, /api/commands, approve/reject)
+      dashboardServer.ts   # persistent local HTTP server (bootstrap/session auth, /api/commands, approve/reject)
       dashboard.html        # (or generated inline) list + approve/reject
       window.ts             # app-mode browser window, opened lazily
     sharedDir.ts            # .tmp/ naming, write-output-file helpers

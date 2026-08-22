@@ -36,7 +36,6 @@ export const DASHBOARD_HTML = `<!doctype html>
 <div id="list" class="empty">Loading&hellip;</div>
 <script>
 (function () {
-  var key = new URLSearchParams(location.search).get("key");
   var listEl = document.getElementById("list");
 
   // id -> { el, parts, lastJson } so refreshes can patch in place instead of
@@ -44,15 +43,19 @@ export const DASHBOARD_HTML = `<!doctype html>
   // half-typed note) the instant it was opened.
   var rendered = Object.create(null);
 
+  // Auth is the HttpOnly session cookie set by /bootstrap, which the browser attaches on its
+  // own. Nothing secret is readable from this page, so there is no token to carry here.
   function api(path, opts) {
     opts = opts || {};
-    var headers = { "x-auth-key": key, "content-type": "application/json" };
-    return fetch(path, { method: opts.method || "GET", headers: headers, body: opts.body }).then(
-      function (res) {
-        if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
-        return res.json();
-      }
-    );
+    return fetch(path, {
+      method: opts.method || "GET",
+      headers: { "content-type": "application/json" },
+      body: opts.body,
+      credentials: "same-origin",
+    }).then(function (res) {
+      if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
+      return res.json();
+    });
   }
 
   function el(tag, cls, text) {

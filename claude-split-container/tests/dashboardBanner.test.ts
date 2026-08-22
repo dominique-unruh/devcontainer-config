@@ -8,7 +8,7 @@ let dom: JSDOM;
 async function boot(jobs: unknown[], uiStatus: unknown) {
   dom = new JSDOM(DASHBOARD_HTML, {
     runScripts: "dangerously",
-    url: "http://127.0.0.1:1234/?key=testkey",
+    url: "http://127.0.0.1:1234/",
   });
   (dom.window as unknown as { fetch: unknown }).fetch = vi.fn(async (path: string) => ({
     ok: true,

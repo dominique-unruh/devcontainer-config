@@ -4,7 +4,7 @@ import { submitJob, ApprovalUiUnavailableError } from "../src/toolRunner.js";
 import { ensureWindowOpen } from "../src/ui/window.js";
 
 describe("submitJob approval-UI failure", () => {
-  it("throws with the dashboard URL instead of hanging when the approval window can't open", async () => {
+  it("throws with the bootstrap file path instead of hanging when the approval window can't open", async () => {
     vi.mocked(ensureWindowOpen).mockResolvedValueOnce({ ok: false, error: "no display available" });
     const execute = vi.fn(() => ({ resultPromise: Promise.resolve({ exitCode: 0 }), kill: () => {} }));
 
@@ -15,7 +15,12 @@ describe("submitJob approval-UI failure", () => {
 
     await expect(promise).rejects.toThrow(ApprovalUiUnavailableError);
     await expect(promise).rejects.toThrow(/no display available/);
-    await expect(promise).rejects.toThrow(/http:\/\/127\.0\.0\.1:\d+/);
+    await expect(promise).rejects.toThrow(/open-approval-dashboard\.html/);
+    // The message reaches the model, so it must not carry anything that would let the model
+    // authenticate to the dashboard and approve its own commands.
+    const err = await promise.catch((e: Error) => e);
+    expect(err.message).not.toMatch(/http:\/\/127\.0\.0\.1:\d+/);
+    expect(err.message).not.toMatch(/t=/);
     expect(execute).not.toHaveBeenCalled();
 
     // The job stays queued, so approving via a manually-opened dashboard still works.

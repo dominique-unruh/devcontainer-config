@@ -15,7 +15,7 @@ async function boot(initialJobs: unknown[]): Promise<DashboardHandle> {
   jobs = initialJobs;
   dom = new JSDOM(DASHBOARD_HTML, {
     runScripts: "dangerously",
-    url: "http://127.0.0.1:1234/?key=testkey",
+    url: "http://127.0.0.1:1234/",
   });
   // Stub fetch before the inline script's initial refresh resolves.
   (dom.window as unknown as { fetch: unknown }).fetch = vi.fn(async () => ({
@@ -141,7 +141,7 @@ describe("dashboard page", () => {
     expect(cards[0].querySelector(".id")!.textContent).toBe("job-2");
   });
 
-  it("POSTs approve with the auth key when Approve is clicked", async () => {
+  it("POSTs approve on the session cookie, carrying no token of its own", async () => {
     await boot([baseJob]);
     const fetchMock = (dom.window as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch;
     fetchMock.mockClear();
@@ -152,11 +152,12 @@ describe("dashboard page", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/commands/job-1/approve",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ "x-auth-key": "testkey" }),
-      })
+      expect.objectContaining({ method: "POST", credentials: "same-origin" })
     );
+    // The page holds no secret: nothing readable from it can authenticate anywhere.
+    const [, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(init.headers).not.toHaveProperty("x-auth-key");
+    expect(DASHBOARD_HTML).not.toContain("location.search");
   });
 
   it("rejects immediately on a single click, sending the typed note", async () => {

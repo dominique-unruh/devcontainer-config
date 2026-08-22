@@ -1,5 +1,5 @@
 import { jobStore, type JobRecord, type ToolName } from "./jobs.js";
-import { startDashboardServer, type DashboardHandle } from "./ui/dashboardServer.js";
+import { startDashboardServer, type Bootstrap, type DashboardHandle } from "./ui/dashboardServer.js";
 import { ensureWindowOpen } from "./ui/window.js";
 import { uiStatus } from "./ui/status.js";
 
@@ -22,14 +22,15 @@ export async function getDashboard(): Promise<DashboardHandle> {
 export class ApprovalUiUnavailableError extends Error {
   constructor(
     readonly jobId: string,
-    readonly url: string,
+    readonly bootstrapPath: string,
     reason: string
   ) {
     super(
       `Approval UI could not be opened, so this command cannot be approved as-is: ${reason}\n\n` +
-        `The command is queued (id: ${jobId}) and the approval dashboard is still served at:\n${url}\n\n` +
-        `Tell the user to open that URL in a browser to approve or reject it — it will run as soon ` +
-        `as they approve. Use status/wait with the id above to pick the result up afterwards.`
+        `The command is queued (id: ${jobId}). Ask the user to open this file in a browser — it ` +
+        `is a one-time link into the approval dashboard, readable only by them:\n${bootstrapPath}\n\n` +
+        `The command will run as soon as they approve. Use status/wait with the id above to pick ` +
+        `the result up afterwards.`
     );
     this.name = "ApprovalUiUnavailableError";
   }
@@ -102,9 +103,16 @@ export async function submitJob(
   // human would never see the request, and the call would block forever — so surface it to the
   // caller instead of hanging silently.
   if (dash) {
-    const launch = await ensureWindowOpen(dash.url);
+    let bootstrap: Bootstrap | undefined;
+    const launch = await ensureWindowOpen(async () => {
+      bootstrap = await dash.newBootstrap();
+      return bootstrap.url;
+    });
     if (!launch.ok) {
-      throw new ApprovalUiUnavailableError(job.id, dash.url, launch.error ?? "unknown reason");
+      // Point the human at the file itself. It is the entry point they can still use by hand,
+      // and unlike the dashboard URL it carries no secret that would survive being read out.
+      const path = (bootstrap ?? (await dash.newBootstrap())).path;
+      throw new ApprovalUiUnavailableError(job.id, path, launch.error ?? "unknown reason");
     }
   }
 
