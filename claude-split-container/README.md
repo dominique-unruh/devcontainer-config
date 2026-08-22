@@ -159,12 +159,19 @@ it, and `status`/`wait` on the returned id picks up the result.
 A skill is only consulted when it looks relevant, so on its own Claude
 tends to reach for the built-in `Bash`/`Read`/`Edit` tools out of habit
 and you end up saying "use the split container plugin" by hand. The
-plugin therefore ships a **UserPromptSubmit** hook that states the
-workflow up front, so the right tool gets picked from the first turn.
+plugin therefore ships a **SessionStart** hook that states the workflow
+up front, so the right tool gets picked from the first turn.
+
+It runs once per session rather than on every prompt, so it costs its
+~180 tokens once instead of re-adding them to the transcript each turn.
 
 Nothing is blocked — the built-in tools remain available, and this is
 steering rather than enforcement. Set the permissions in `settings.json`
 if you want a hard guarantee.
+
+The hook must emit JSON with `hookSpecificOutput.additionalContext`.
+Plain stdout is reported as a successful hook run but isn't injected, so
+a plain-text version fails silently — `tests/hooks.test.ts` guards this.
 
 Control it with `SPLIT_CONTAINER_ENFORCE`:
 

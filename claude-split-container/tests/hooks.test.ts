@@ -19,7 +19,7 @@ function parsed(mode?: string) {
   };
 }
 
-describe("UserPromptSubmit reminder hook", () => {
+describe("SessionStart reminder hook", () => {
   // Regression guard: plain-text stdout is reported as a successful hook run by
   // Claude Code but is never injected into the model's context, so the reminder
   // silently does nothing. It must be JSON with additionalContext.
@@ -27,7 +27,7 @@ describe("UserPromptSubmit reminder hook", () => {
     const raw = runHook();
     expect(raw.startsWith("{")).toBe(true);
     const out = JSON.parse(raw);
-    expect(out.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
+    expect(out.hookSpecificOutput.hookEventName).toBe("SessionStart");
     expect(typeof out.hookSpecificOutput.additionalContext).toBe("string");
     expect(out.hookSpecificOutput.additionalContext.length).toBeGreaterThan(0);
   });
