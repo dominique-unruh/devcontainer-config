@@ -1,6 +1,8 @@
 import webview from "webview";
 import { spawn, type ChildProcess } from "node:child_process";
 import { chmodSync } from "node:fs";
+import { logLine } from "../log.js";
+import { setUiStatus } from "./status.js";
 
 const spawnWebview = webview.spawn;
 
@@ -94,7 +96,10 @@ export async function ensureWindowOpen(url: string): Promise<WindowLaunchResult>
   }
 
   const native = await tryNativeWindow(url);
-  if (native.ok) return native;
+  if (native.ok) {
+    setUiStatus({ surface: "window" });
+    return native;
+  }
 
   // The bundled webview binary is fragile (it links libwebkit2gtk-4.0, which current distros have
   // replaced with 4.1), so falling back to the browser keeps the approval flow usable rather than
@@ -102,17 +107,54 @@ export async function ensureWindowOpen(url: string): Promise<WindowLaunchResult>
   const browser = await openInBrowser(url);
   if (browser.ok) {
     browserFallbackActive = true;
-    console.error(
-      `[claude-split-container] Native approval window unavailable (${native.error}) — ` +
-        `opened the approval dashboard in your browser instead.`
+    setUiStatus({ surface: "browser", windowError: native.error });
+    logLine(
+      `Native approval window unavailable, using the browser instead. Reason: ${native.error} ` +
+        `(run \`claude-split-container --doctor\` for details)`
     );
     return browser;
   }
 
+  setUiStatus({ surface: "none", windowError: native.error, browserError: browser.error });
+  logLine(`No approval UI could be opened. Window: ${native.error} Browser: ${browser.error}`);
   return {
     ok: false,
     error: `${native.error} Falling back to a browser also failed: ${browser.error}.`,
   };
+}
+
+/**
+ * Diagnose why the native approval window can't start, for `--doctor`. Returns a human-readable
+ * report rather than throwing, so it is useful even when everything is broken.
+ */
+export async function diagnoseWindow(): Promise<string> {
+  const lines: string[] = [];
+  lines.push(`webview binary: ${webview.binaryPath}`);
+  try {
+    chmodSync(webview.binaryPath, 0o755);
+    lines.push("executable bit: ok");
+  } catch (err) {
+    lines.push(`executable bit: FAILED (${err instanceof Error ? err.message : String(err)})`);
+  }
+  lines.push(`platform: ${process.platform}`);
+  lines.push(`DISPLAY=${process.env.DISPLAY ?? "(unset)"} WAYLAND_DISPLAY=${process.env.WAYLAND_DISPLAY ?? "(unset)"}`);
+
+  const probe = await tryNativeWindow("about:blank");
+  if (probe.ok) {
+    lines.push("native window: launched successfully");
+    child?.kill();
+    child = undefined;
+  } else {
+    lines.push(`native window: FAILED — ${probe.error}`);
+    lines.push("");
+    lines.push("The bundled webview binary links libwebkit2gtk-4.0, which recent distros have");
+    lines.push("replaced with 4.1. Install the 4.0 runtime to get the native window, or ignore");
+    lines.push("this and use the browser fallback.");
+  }
+
+  const opener = browserOpener();
+  lines.push(`browser opener: ${opener.cmd}`);
+  return lines.join("\n");
 }
 
 /** Attempt the native webview window, resolving with a failure result rather than throwing. */

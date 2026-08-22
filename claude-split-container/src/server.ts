@@ -119,6 +119,20 @@ function buildServer(): McpServer {
 }
 
 async function main() {
+  // `--doctor` reports why the native approval window can't start. Useful because the failure
+  // otherwise only shows up as a browser fallback, with the reason buried in the server's stderr.
+  if (process.argv.includes("--doctor")) {
+    const { diagnoseWindow } = await import("./ui/window.js");
+    const { PROJECT_DIR, TMP_DIR } = await import("./sharedDir.js");
+    const { LOG_PATH } = await import("./log.js");
+    console.log(`project dir: ${PROJECT_DIR}`);
+    console.log(`.tmp dir:    ${TMP_DIR}`);
+    console.log(`log file:    ${LOG_PATH}`);
+    console.log("");
+    console.log(await diagnoseWindow());
+    process.exit(0);
+  }
+
   const server = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);

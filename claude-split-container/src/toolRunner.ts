@@ -1,6 +1,7 @@
 import { jobStore, type JobRecord, type ToolName } from "./jobs.js";
 import { startDashboardServer, type DashboardHandle } from "./ui/dashboardServer.js";
 import { ensureWindowOpen } from "./ui/window.js";
+import { uiStatus } from "./ui/status.js";
 
 let dashboard: DashboardHandle | undefined;
 let dashboardStarting: Promise<DashboardHandle> | undefined;
@@ -50,8 +51,32 @@ export interface SubmitParams {
 }
 
 export type SubmitOutcome =
-  | { id: string; background: true }
-  | { id: string; background: false; status: JobRecord["status"]; note?: string; result?: unknown };
+  | { id: string; background: true; warning?: string }
+  | {
+      id: string;
+      background: false;
+      status: JobRecord["status"];
+      note?: string;
+      result?: unknown;
+      warning?: string;
+    };
+
+/** Emitted on the first approval-gated call only, so the model can pass the degradation on once. */
+let uiWarningDelivered = false;
+
+/**
+ * One-shot warning for the caller when the approval UI is degraded. Repeating it on every call
+ * would be noise, but saying nothing leaves the user staring at a browser tab with no explanation.
+ */
+function takeUiWarning(): string | undefined {
+  if (uiWarningDelivered) return undefined;
+  if (uiStatus.surface !== "browser" || !uiStatus.windowError) return undefined;
+  uiWarningDelivered = true;
+  return (
+    `The approval UI opened in your browser rather than its own window: ${uiStatus.windowError} ` +
+    `Tell the user, and mention that \`claude-split-container --doctor\` explains it in full.`
+  );
+}
 
 /**
  * Create a job, then (in the background if requested, else inline) wait for
@@ -91,12 +116,21 @@ export async function submitJob(
     jobStore.finish(job.id, result);
   };
 
+  const warning = takeUiWarning();
+
   if (params.background) {
     void run();
-    return { id: job.id, background: true };
+    return { id: job.id, background: true, warning };
   }
 
   await run();
   const final = jobStore.get(job.id)!;
-  return { id: job.id, background: false, status: final.status, note: final.note, result: final.result };
+  return {
+    id: job.id,
+    background: false,
+    status: final.status,
+    note: final.note,
+    result: final.result,
+    warning,
+  };
 }

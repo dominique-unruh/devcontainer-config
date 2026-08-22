@@ -26,10 +26,13 @@ export const DASHBOARD_HTML = `<!doctype html>
   .empty { color: #888; }
   .id { color: #888; font-size: 0.75rem; }
   .hidden { display: none; }
+  #banner { border: 1px solid #7a5b00; background: #2a2410; color: #e8d9a0; border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-size: 0.85rem; line-height: 1.45; }
+  #banner code { background: #111; padding: 0.05rem 0.3rem; border-radius: 3px; }
 </style>
 </head>
 <body>
 <h1>claude-split-container &mdash; pending &amp; recent commands</h1>
+<div id="banner" class="hidden"></div>
 <div id="list" class="empty">Loading&hellip;</div>
 <script>
 (function () {
@@ -197,11 +200,36 @@ export const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  // Why the approval UI is in a browser tab rather than its own window. Without
+  // this the reason only reaches the server's stderr, which the MCP client
+  // swallows, so there is nowhere for a user to see it.
+  function renderBanner(status) {
+    var bannerEl = document.getElementById("banner");
+    if (!status || status.surface !== "browser" || !status.windowError) {
+      bannerEl.className = "hidden";
+      return;
+    }
+    bannerEl.className = "";
+    bannerEl.textContent = "";
+    bannerEl.appendChild(
+      el("div", null, "Showing in your browser: the standalone window could not be opened.")
+    );
+    bannerEl.appendChild(el("div", null, status.windowError));
+    var hint = el("div", null, "Diagnose with: ");
+    var code = el("code", null, "claude-split-container --doctor");
+    hint.appendChild(code);
+    if (status.logPath) {
+      hint.appendChild(document.createTextNode("  \\u00b7  Log: " + status.logPath));
+    }
+    bannerEl.appendChild(hint);
+  }
+
   function refresh() {
     try {
-      return api("/api/commands")
-        .then(render)
-        .catch(function () { /* transient poll failure — keep the current view */ });
+      return Promise.all([
+        api("/api/commands").then(render),
+        api("/api/ui-status").then(renderBanner),
+      ]).catch(function () { /* transient poll failure — keep the current view */ });
     } catch (e) {
       // e.g. no fetch available yet; keep the current view rather than dying.
       return Promise.resolve();

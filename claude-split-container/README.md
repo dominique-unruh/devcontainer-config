@@ -109,8 +109,8 @@ visible in the other. It's also what "the shared dir" means throughout
 this project; there is no separate shared location.
 
 Inside it, **`.tmp/`** is where this server puts files it names itself:
-`run_bash_host`'s captured stdout/stderr, and copies made by `read_file`.
-Add it to the project's `.gitignore`:
+`run_bash_host`'s captured stdout/stderr, copies made by `read_file`, and
+`claude-split-container.log`. Add it to the project's `.gitignore`:
 
 ```
 .tmp/
@@ -153,6 +153,34 @@ back to opening that URL in your default browser. If that fails too, the
 tool call returns an error containing the URL rather than hanging — the
 command stays queued, so opening the URL by hand and approving still runs
 it, and `status`/`wait` on the returned id picks up the result.
+
+## When something goes wrong
+
+An MCP server's stderr is captured by the client, so anything printed
+there is effectively invisible. Failures are therefore reported in three
+places you can actually see:
+
+- **A banner in the dashboard**, when the approval UI had to fall back to
+  the browser, naming the reason.
+- **`.tmp/claude-split-container.log`** in the project dir — a plain
+  timestamped log of the same events.
+- **A one-time `warning` field** on the first affected tool result, so
+  Claude can pass the problem on to you rather than silently degrading.
+  It appears once per server run, not on every call.
+
+To investigate the approval window specifically:
+
+```
+claude-split-container --doctor
+```
+
+It reports the project and `.tmp` paths, the webview binary and its
+permissions, `DISPLAY`/`WAYLAND_DISPLAY`, and then actually tries to
+launch the window, printing the precise failure. The most common result
+on an up-to-date Linux box is the bundled binary needing
+`libwebkit2gtk-4.0`, which distros have replaced with 4.1 — in which case
+the browser fallback is doing its job and you can either install the 4.0
+runtime or ignore it.
 
 ## Steering the workflow
 

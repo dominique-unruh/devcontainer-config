@@ -2,6 +2,8 @@ import { createServer, type IncomingMessage } from "node:http";
 import { randomBytes } from "node:crypto";
 import { jobStore as defaultJobStore, type JobRecord, type JobStore } from "../jobs.js";
 import { DASHBOARD_HTML } from "./dashboardHtml.js";
+import { uiStatus } from "./status.js";
+import { LOG_PATH } from "../log.js";
 
 export interface DashboardHandle {
   url: string;
@@ -59,6 +61,12 @@ export async function startDashboardServer(store: JobStore = defaultJobStore): P
       if (req.method === "GET" && url.pathname === "/") {
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(DASHBOARD_HTML);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/ui-status") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ...uiStatus, logPath: LOG_PATH }));
         return;
       }
 
