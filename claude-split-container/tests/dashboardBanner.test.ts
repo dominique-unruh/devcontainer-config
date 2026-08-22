@@ -47,6 +47,11 @@ describe("approval-UI degradation banner", () => {
     expect(banner().className).toContain("hidden");
   });
 
+  it("stays hidden for a browser app-mode window, which is still a standalone window", async () => {
+    await boot([], { surface: "app-window", windowError: "webview missing libwebkit2gtk-4.0" });
+    expect(banner().className).toContain("hidden");
+  });
+
   it("stays hidden when the server reports no degradation reason", async () => {
     await boot([], { surface: "browser" });
     expect(banner().className).toContain("hidden");

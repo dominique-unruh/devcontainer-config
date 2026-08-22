@@ -1,5 +1,5 @@
 import webview from "webview";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { chmodSync } from "node:fs";
 import { logLine } from "../log.js";
 import { setUiStatus } from "./status.js";
@@ -11,15 +11,16 @@ const LAUNCH_GRACE_MS = 1500;
 
 let child: ChildProcess | undefined;
 let binaryMadeExecutable = false;
-/** Set once we've fallen back to the browser, so we don't retry the doomed native window each time. */
+/** Set once a fallback has been chosen, so we don't retry the doomed native window on every call. */
 let browserFallbackActive = false;
+let appModeActive = false;
 
 export interface WindowLaunchResult {
   ok: boolean;
   /** Human-readable failure reason, present only when `ok` is false. */
   error?: string;
   /** Which surface the approval UI actually ended up on. */
-  via?: "window" | "browser";
+  via?: "window" | "app-window" | "browser";
 }
 
 /** Platform command that opens a URL in the user's default browser. */
@@ -27,6 +28,91 @@ function browserOpener(): { cmd: string; args: string[] } {
   if (process.platform === "darwin") return { cmd: "open", args: [] };
   if (process.platform === "win32") return { cmd: "cmd", args: ["/c", "start", ""] };
   return { cmd: "xdg-open", args: [] };
+}
+
+/**
+ * Chromium-family browsers that support `--app=<url>`, which opens a chromeless standalone window
+ * (no tabs, no address bar) — the intended UI, without depending on the bundled webview binary.
+ */
+const APP_MODE_BROWSERS =
+  process.platform === "darwin"
+    ? [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+      ]
+    : process.platform === "win32"
+      ? ["chrome.exe", "msedge.exe"]
+      : [
+          "chromium",
+          "chromium-browser",
+          "google-chrome-stable",
+          "google-chrome",
+          "brave",
+          "brave-browser",
+          "microsoft-edge-stable",
+          "microsoft-edge",
+          "vivaldi",
+        ];
+
+/** First app-mode-capable browser present on this machine, if any. */
+export function findAppModeBrowser(): string | undefined {
+  for (const candidate of APP_MODE_BROWSERS) {
+    const probe = spawnSync(candidate.includes("/") ? "test" : "command",
+      candidate.includes("/") ? ["-x", candidate] : ["-v", candidate],
+      { shell: true, stdio: "ignore" }
+    );
+    if (probe.status === 0) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Open the dashboard as a chromeless browser window (`--app=`). This is the practical stand-in for
+ * the native webview: a real standalone window, but using a browser the user already has, rather
+ * than a bundled binary linked against an EOL system library.
+ */
+function tryAppModeWindow(url: string): Promise<WindowLaunchResult> {
+  const browser = findAppModeBrowser();
+  if (!browser) {
+    return Promise.resolve({ ok: false, error: "no Chromium-family browser found for --app mode" });
+  }
+
+  let opened: ChildProcess;
+  try {
+    opened = spawn(browser, [`--app=${url}`, "--window-size=760,680"], { stdio: "ignore" });
+  } catch (err) {
+    return Promise.resolve({
+      ok: false,
+      error: `${browser} --app failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  }
+  child = opened;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (r: WindowLaunchResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(r);
+    };
+    opened.on("error", (err) => {
+      child = undefined;
+      settle({ ok: false, error: `${browser} --app failed: ${err.message}` });
+    });
+    opened.on("exit", (code) => {
+      if (opened !== child) return;
+      child = undefined;
+      // Exit 0 usually means it handed off to an already-running instance of the same browser,
+      // which still produces the window — so only a non-zero exit counts as a failure.
+      if (code === 0) return settle({ ok: true, via: "app-window" });
+      settle({ ok: false, error: `${browser} --app exited with code ${code}` });
+    });
+    const timer = setTimeout(() => settle({ ok: true, via: "app-window" }), LAUNCH_GRACE_MS);
+    timer.unref();
+  });
 }
 
 /**
@@ -92,8 +178,11 @@ function ensureBinaryExecutable(): void {
 export async function ensureWindowOpen(url: string): Promise<WindowLaunchResult> {
   if (browserFallbackActive) return { ok: true, via: "browser" };
   if (child && child.exitCode === null && !child.killed) {
-    return { ok: true, via: "window" };
+    return { ok: true, via: appModeActive ? "app-window" : "window" };
   }
+  // An app-mode window that has since been closed: reopen it directly, skipping the webview
+  // attempt we already know fails on this machine.
+  if (appModeActive) return tryAppModeWindow(url);
 
   const native = await tryNativeWindow(url);
   if (native.ok) {
@@ -101,25 +190,46 @@ export async function ensureWindowOpen(url: string): Promise<WindowLaunchResult>
     return native;
   }
 
-  // The bundled webview binary is fragile (it links libwebkit2gtk-4.0, which current distros have
-  // replaced with 4.1), so falling back to the browser keeps the approval flow usable rather than
-  // failing the command outright.
+  // The bundled webview binary is fragile — it links libwebkit2gtk-4.0, which current distros
+  // (Arch, Ubuntu 24.04, …) have replaced with 4.1, so on an up-to-date Linux box it can never
+  // start. A Chromium-family browser in --app mode gives the same chromeless standalone window
+  // without depending on that binary at all.
+  const appWindow = await tryAppModeWindow(url);
+  if (appWindow.ok) {
+    appModeActive = true;
+    setUiStatus({ surface: "app-window", windowError: native.error });
+    logLine(
+      `Bundled webview unavailable, using a browser app-mode window instead. Reason: ${native.error}`
+    );
+    return appWindow;
+  }
+
   const browser = await openInBrowser(url);
   if (browser.ok) {
     browserFallbackActive = true;
-    setUiStatus({ surface: "browser", windowError: native.error });
+    setUiStatus({ surface: "browser", windowError: native.error, appWindowError: appWindow.error });
     logLine(
-      `Native approval window unavailable, using the browser instead. Reason: ${native.error} ` +
-        `(run \`claude-split-container --doctor\` for details)`
+      `No standalone window available, using a browser tab instead. Webview: ${native.error} ` +
+        `App mode: ${appWindow.error} (run \`claude-split-container --doctor\` for details)`
     );
     return browser;
   }
 
-  setUiStatus({ surface: "none", windowError: native.error, browserError: browser.error });
-  logLine(`No approval UI could be opened. Window: ${native.error} Browser: ${browser.error}`);
+  setUiStatus({
+    surface: "none",
+    windowError: native.error,
+    appWindowError: appWindow.error,
+    browserError: browser.error,
+  });
+  logLine(
+    `No approval UI could be opened. Webview: ${native.error} App mode: ${appWindow.error} ` +
+      `Browser: ${browser.error}`
+  );
   return {
     ok: false,
-    error: `${native.error} Falling back to a browser also failed: ${browser.error}.`,
+    error:
+      `${native.error} A browser app-mode window also failed (${appWindow.error}), ` +
+      `and opening a plain browser tab failed too: ${browser.error}.`,
   };
 }
 
@@ -141,19 +251,34 @@ export async function diagnoseWindow(): Promise<string> {
 
   const probe = await tryNativeWindow("about:blank");
   if (probe.ok) {
-    lines.push("native window: launched successfully");
+    lines.push("bundled webview window: launched successfully");
     child?.kill();
     child = undefined;
   } else {
-    lines.push(`native window: FAILED — ${probe.error}`);
-    lines.push("");
-    lines.push("The bundled webview binary links libwebkit2gtk-4.0, which recent distros have");
-    lines.push("replaced with 4.1. Install the 4.0 runtime to get the native window, or ignore");
-    lines.push("this and use the browser fallback.");
+    lines.push(`bundled webview window: FAILED — ${probe.error}`);
   }
 
-  const opener = browserOpener();
-  lines.push(`browser opener: ${opener.cmd}`);
+  const appBrowser = findAppModeBrowser();
+  lines.push(
+    appBrowser
+      ? `browser app-mode window: available via ${appBrowser} (used when the webview fails)`
+      : "browser app-mode window: no Chromium-family browser found"
+  );
+  lines.push(`plain browser tab: ${browserOpener().cmd} (last resort)`);
+
+  if (!probe.ok) {
+    lines.push("");
+    if (appBrowser) {
+      lines.push("The bundled webview binary links libwebkit2gtk-4.0, which recent distros have");
+      lines.push("replaced with 4.1. That's fine — you'll get a chromeless standalone window from");
+      lines.push(`${appBrowser} instead, which looks and behaves the same.`);
+    } else {
+      lines.push("The bundled webview binary links libwebkit2gtk-4.0, which recent distros have");
+      lines.push("replaced with 4.1, and no Chromium-family browser was found for --app mode, so");
+      lines.push("the dashboard opens as an ordinary browser tab. Installing any of");
+      lines.push(`${APP_MODE_BROWSERS.slice(0, 3).join(", ")} would restore a standalone window.`);
+    }
+  }
   return lines.join("\n");
 }
 
