@@ -117,6 +117,11 @@ Inside it, **`.tmp/`** is where this server puts files it names itself:
 | `run_bash_host` | required | `bash -e -c`, stdout/stderr written to `.tmp/*.stdout`/`.stderr` |
 | `read_file` | required | copies a host file into `.tmp/` |
 | `write_file` | required | writes a `.tmp/` file or literal content to a host path |
+
+File names come back project-relative, prefix included (e.g.
+`.tmp/1787391261592-2-f84baf66.stdout`), so they can be used verbatim —
+as a path in a container command, with the built-in file tools, or as
+`write_file`'s `sharedFile`. A bare filename is accepted there too.
 | `patch_file` | required | applies a unified diff, atomically (dry-run first, backup + restore on failure) |
 
 The three file tools are for host files **outside** the project dir. For

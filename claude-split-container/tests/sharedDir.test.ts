@@ -25,10 +25,30 @@ describe("sharedDir", () => {
 
   it("writeTmpFile creates the file under .tmp and reports its size", async () => {
     const written = await sharedDir.writeTmpFile("out", ".stdout", "hello world");
-    expect(written.name).toMatch(/^out-[0-9a-f]{8}\.stdout$/);
+    // Names are project-relative and carry the .tmp/ prefix, so a caller can use
+    // them directly without knowing where these files are kept.
+    expect(written.name).toMatch(/^\.tmp\/out-[0-9a-f]{8}\.stdout$/);
     expect(written.bytes).toBe(Buffer.byteLength("hello world"));
     const contents = await fsReadFile(sharedDir.tmpFilePath(written.name), "utf8");
     expect(contents).toBe("hello world");
+  });
+
+  it("copyIntoTmpDir also returns a .tmp/-prefixed name", async () => {
+    await fsWriteFile(join(projectDir, "prefixed.txt"), "x");
+    const copied = await sharedDir.copyIntoTmpDir("prefixed.txt");
+    expect(copied.name).toMatch(/^\.tmp\/[0-9a-f]{8}-prefixed\.txt$/);
+  });
+
+  it("the returned name resolves relative to the project dir", async () => {
+    const written = await sharedDir.writeTmpFile("rel", ".txt", "content");
+    expect(await fsReadFile(join(projectDir, written.name), "utf8")).toBe("content");
+  });
+
+  it("tmpFilePath accepts both the .tmp/-prefixed name and a bare filename", async () => {
+    const written = await sharedDir.writeTmpFile("both", ".txt", "either way");
+    const bare = written.name.replace(/^\.tmp\//, "");
+    expect(sharedDir.tmpFilePath(written.name)).toBe(sharedDir.tmpFilePath(bare));
+    expect(await fsReadFile(sharedDir.tmpFilePath(bare), "utf8")).toBe("either way");
   });
 
   it("writeTmpFile calls with the same prefix/suffix produce distinct files", async () => {

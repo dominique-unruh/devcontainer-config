@@ -23,7 +23,16 @@ function shortId(): string {
   return randomBytes(4).toString("hex");
 }
 
+/** Subdirectory of the project dir holding files this server names itself. */
+export const TMP_SUBDIR = ".tmp";
+
 export interface WrittenFile {
+  /**
+   * Path relative to the project dir, including the `.tmp/` prefix (e.g.
+   * `.tmp/1787391261592-2-f84baf66.stdout`), so it can be used as-is by a
+   * container command or a built-in file tool without the caller having to
+   * know where these files live.
+   */
   name: string;
   bytes: number;
 }
@@ -35,24 +44,29 @@ export async function writeTmpFile(
   data: string | Buffer
 ): Promise<WrittenFile> {
   await ensureTmpDir();
-  const name = `${prefix}-${shortId()}${suffix}`;
-  const path = join(TMP_DIR, name);
+  const base = `${prefix}-${shortId()}${suffix}`;
+  const path = join(TMP_DIR, base);
   await writeFile(path, data);
   const st = await stat(path);
-  return { name, bytes: st.size };
+  return { name: `${TMP_SUBDIR}/${base}`, bytes: st.size };
 }
 
 /** Copy an arbitrary host file into .tmp, named `<shortid>-<basename>`. */
 export async function copyIntoTmpDir(sourcePath: string): Promise<WrittenFile> {
   await ensureTmpDir();
-  const name = `${shortId()}-${basename(sourcePath)}`;
-  const dest = join(TMP_DIR, name);
+  const base = `${shortId()}-${basename(sourcePath)}`;
+  const dest = join(TMP_DIR, base);
   await copyFile(resolve(PROJECT_DIR, sourcePath), dest);
   const st = await stat(dest);
-  return { name, bytes: st.size };
+  return { name: `${TMP_SUBDIR}/${base}`, bytes: st.size };
 }
 
-/** Resolve a filename the caller says lives in the project dir's .tmp/ subdir into an absolute path. */
+/**
+ * Resolve a name the caller gave for a file in `.tmp/` to an absolute path. Accepts both the
+ * `.tmp/<file>` form these tools hand out and a bare `<file>`, so a caller that strips the prefix
+ * still works.
+ */
 export function tmpFilePath(name: string): string {
-  return join(TMP_DIR, name);
+  const withoutPrefix = name.replace(/^\.tmp[/\\]/, "");
+  return join(TMP_DIR, withoutPrefix);
 }

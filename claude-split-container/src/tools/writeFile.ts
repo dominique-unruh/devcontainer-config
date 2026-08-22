@@ -9,7 +9,10 @@ export const writeFileShape = {
   sharedFile: z
     .string()
     .optional()
-    .describe("Filename (within the project dir's .tmp/ subdir) to copy from. Mutually exclusive with `content`."),
+    .describe(
+      "File to copy from, as returned by read_file/run_bash_host (e.g. `.tmp/1787-2-ab12.stdout`); " +
+        "a bare filename is also accepted. Mutually exclusive with `content`."
+    ),
   content: z.string().optional().describe("Literal content to write directly. Mutually exclusive with `sharedFile`."),
   reason: z.string().describe("Markdown explanation of why this write is needed, shown to the human approving it."),
   background: z

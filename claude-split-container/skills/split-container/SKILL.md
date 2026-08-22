@@ -74,10 +74,15 @@ run_bash_container: grep token .tmp/<ts>-<id>.stdout | awk '{print $2}' | sort -
 ```
 
 This is why `run_bash_host` writes stdout/stderr into `.tmp/` instead of
-returning them: the output lands in the project dir, so the
-follow-up costs nothing. And since `.tmp/` *is* in the project dir, the
-built-in `Read`/`Grep` tools work on those files directly too — reach for
+returning them: the output lands in the project dir, so the follow-up
+costs nothing. And since `.tmp/` *is* in the project dir, the built-in
+`Read`/`Grep` tools work on those files directly too — reach for
 whichever is more convenient; neither needs approval.
+
+The returned file names are already project-relative and include the
+`.tmp/` prefix (e.g. `.tmp/1787391261592-2-f84baf66.stdout`), so use them
+verbatim — as a path in a container command, with the built-in file
+tools, or as `write_file`'s `sharedFile`.
 
 Corollaries:
 

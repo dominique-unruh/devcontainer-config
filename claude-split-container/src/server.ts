@@ -22,7 +22,8 @@ function buildServer(): McpServer {
       title: "Run bash on host",
       description:
         "Run a bash command on the HOST machine. Requires human approval via the approval UI. " +
-        "stdout/stderr are written to new files in the project dir's .tmp/ subdir; exit code and file names/sizes are returned.",
+        "stdout/stderr are written to new files under the project dir's .tmp/ subdir; the exit code " +
+        "and each file's project-relative path (e.g. `.tmp/<name>.stdout`) and size are returned.",
       inputSchema: runBashHostShape,
     },
     runBashHost
@@ -45,7 +46,8 @@ function buildServer(): McpServer {
     {
       title: "Read host file",
       description:
-        "Copy a host file into the project dir's .tmp/ subdir so it can be inspected. Requires human approval.",
+        "Copy a host file into the project dir's .tmp/ subdir so it can be inspected. Returns the " +
+        "copy's project-relative path (e.g. `.tmp/<name>`). Requires human approval.",
       inputSchema: readFileShape,
     },
     readFile
@@ -56,8 +58,8 @@ function buildServer(): McpServer {
     {
       title: "Write host file",
       description:
-        "Write a file on the host, either by copying a file from the project dir's .tmp/ subdir or from literal " +
-        "content. Requires human approval.",
+        "Write a file on the host, either by copying a file from the project dir's .tmp/ subdir or " +
+        "from literal content. Requires human approval.",
       inputSchema: writeFileShape,
     },
     writeFile
