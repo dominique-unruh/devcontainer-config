@@ -41,7 +41,7 @@ the live project dir into a persistent container).
 | Container exec | `devcontainer exec --workspace-folder <dir> -- bash -e -c '<cmd>'` (official `@devcontainers/cli`) |
 | Patch application | POSIX `patch -p1 --dry-run` first; only apply for real if dry-run is clean; backup + restore on any unexpected failure from the real apply |
 | `run_bash_container` output (foreground) | Returned inline in the tool response (stdout/stderr as text, truncated like Claude Code's built-in Bash tool does for very long output) — not routed through `.tmp` files, unlike `run_bash_host` (which the spec explicitly requires to use files) |
-| UI implementation | Custom, TypeScript — a local-only HTTP server serving an HTML dashboard, not OS-native dialogs. Hosted in a standalone window via the `webview` package (system webview component, not a browser tab, not Electron), opened lazily on first item needing attention |
+| UI implementation | Custom, TypeScript — a local-only HTTP server serving an HTML dashboard, not OS-native dialogs. Hosted in a standalone window by launching a Chromium-family browser in `--app` mode (chromeless; not a tab, not Electron), opened lazily on first item needing attention |
 | `reason` param | Every confirmed tool (`run_bash_host`, `read_file`, `write_file`, `patch_file` — not `run_bash_container`) takes a required `reason: string` (markdown) |
 | `background` param | Every tool (all 5) takes optional `background: boolean` (default `false`) |
 | `timeout` param | `run_bash_host` and `run_bash_container` only. **Mandatory** when `background` is false. **Optional** when `background` is true (unset = no auto-timeout). Clock starts when the command actually enters `running` (both gates resolved), *not* at submission — a command can sit in `waiting-approval`/`waiting-dependencies` indefinitely without burning its timeout. (`wait`'s own `timeout` is unrelated — that one starts immediately when `wait` is called.) |
@@ -214,12 +214,16 @@ at MCP server startup (or lazily on first command), serving:
   framework, plain HTML + a small script.
 - Backend: `GET /api/commands`, `POST /api/commands/:id/approve`,
   `POST /api/commands/:id/reject { note }`.
-- **Not a browser tab** — a standalone window, via the `webview` npm
-  package (native bindings to the small zserge/webview C library: renders
-  using the OS's already-installed webview component — WebKitGTK on
-  Linux, WebView2 on Windows, WKWebView on macOS). No bundled Chromium,
-  no Electron; a thin native binary pointed at the local HTTP server's
-  URL. Much lighter than either app-mode-Chrome or Electron.
+- **Not a browser tab** — a standalone window, opened by launching a
+  Chromium-family browser in `--app=<url>` mode (chromeless: no tabs, no
+  address bar). Falls back to a plain browser tab only if no such browser
+  exists.
+  *(Superseded design: this originally used the `webview` npm package —
+  native bindings to the zserge/webview C library, rendering via the OS's
+  installed webview component. Dropped in practice: the published binary
+  links `libwebkit2gtk-4.0`, which current distros replaced with 4.1, so
+  it never started on an up-to-date Linux box and always fell through to
+  the browser anyway, for a ~32 MB dependency.)*
 - Window opens **lazily**, on the first command that needs human
   attention — not at server startup — so a Claude Code session that never
   touches these tools never pops a window.
@@ -227,7 +231,7 @@ at MCP server startup (or lazily on first command), serving:
   shared UI daemon process that multiple `claude-split-container`
   instances (one per project) register jobs with, living in the taskbar
   rather than one window per project. v1's `ui/dashboardServer.ts` stays
-  a separate, swappable component from `webview`'s window-hosting code
+  a separate, swappable component from the window-hosting code
   specifically so this is a later addition, not a rewrite — the HTTP
   API/auth-key design doesn't change either way.
 - Built to grow: v1 is a plain list + two buttons per item; richer diff
@@ -248,7 +252,7 @@ from hitting the API, the loopback bind is what stops the network.
 claude-split-container/
   PLAN.md
   claude-split-container # launcher script: runs `node dist/server.js` next to itself
-  package.json           # deps: @modelcontextprotocol/sdk, webview (native window)
+  package.json           # deps: @modelcontextprotocol/sdk, zod
   tsconfig.json
   src/
     server.ts             # entrypoint, registers tools, stdio transport
@@ -266,7 +270,7 @@ claude-split-container/
     ui/
       dashboardServer.ts   # persistent local HTTP server (auth key, /api/commands, approve/reject)
       dashboard.html        # (or generated inline) list + approve/reject
-      window.ts             # webview-backed window, opened lazily
+      window.ts             # app-mode browser window, opened lazily
     sharedDir.ts            # .tmp/ naming, write-output-file helpers
     devcontainerExec.ts     # wraps `devcontainer exec`
   .claude-plugin/
@@ -275,7 +279,7 @@ claude-split-container/
   skills/
     split-container/
       SKILL.md              # the "prefer container / decompose / prefer patch" guidance
-  README.md                 # setup: `claude mcp add`, required host tools (devcontainer CLI, patch, a system webview component)
+  README.md                 # setup: `claude mcp add`, required host tools (devcontainer CLI, patch, a Chromium-family browser)
 ```
 
 ## Config / how the server locates things

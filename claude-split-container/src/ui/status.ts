@@ -1,11 +1,9 @@
-export type UiSurface = "none" | "window" | "app-window" | "browser";
+export type UiSurface = "none" | "app-window" | "browser";
 
 export interface UiStatus {
   /** Where the approval UI actually ended up being shown. */
   surface: UiSurface;
-  /** Why the bundled-webview window wasn't used, when it wasn't. */
-  windowError?: string;
-  /** Why a browser app-mode window wasn't used either, when it wasn't. */
+  /** Why a standalone (browser app-mode) window couldn't be opened, when it couldn't. */
   appWindowError?: string;
   /** Why even a plain browser tab failed, when it did. */
   browserError?: string;
@@ -21,7 +19,6 @@ export const uiStatus: UiStatus = { surface: "none" };
 /** Record which surface the approval UI is using, and why the better one was unavailable. */
 export function setUiStatus(next: UiStatus): void {
   uiStatus.surface = next.surface;
-  uiStatus.windowError = next.windowError;
   uiStatus.appWindowError = next.appWindowError;
   uiStatus.browserError = next.browserError;
 }

@@ -10,14 +10,10 @@ project's **devcontainer**. See `PLAN.md` for the full design.
 - [`@devcontainers/cli`](https://github.com/devcontainers/cli) installed
   and on `PATH` (`npm i -g @devcontainers/cli`) — used for `run_bash_container`.
 - POSIX `patch` on `PATH` — used for `patch_file`.
-- For the approval UI's standalone window, either a system webview
-  component **or** any Chromium-family browser (Chromium, Chrome, Brave,
-  Edge, Vivaldi). You almost certainly already have the latter.
-
-  **Heads-up:** the bundled `webview` binary links `libwebkit2gtk-4.0`,
-  which current distros (Arch, Ubuntu 24.04, …) have replaced with 4.1,
-  so on an up-to-date Linux box it can't start. This is handled rather
-  than fatal — see below.
+- For the approval UI's standalone window, any Chromium-family browser
+  (Chromium, Chrome, Brave, Edge, Vivaldi) — used in `--app` mode, which
+  gives a chromeless window with no tabs or address bar. Without one the
+  dashboard still works, just as an ordinary browser tab.
 
 ## Build
 
@@ -146,21 +142,23 @@ showing the pending queue, with Approve/Reject (optionally with a note)
 per item. It's a local HTTP server bound to `127.0.0.1`, protected by a
 random key baked into the URL.
 
-The UI is tried in three steps, stopping at the first that works:
+The UI is tried in two steps, stopping at the first that works:
 
-1. **Bundled webview window** — a true native window, when its system
-   library is present.
-2. **Browser app-mode window** (`chromium --app=…`) — a chromeless
-   standalone window with no tabs or address bar, using a browser you
-   already have. This is what most modern Linux machines end up on,
-   since step 1 needs an EOL library, and it looks essentially the same.
-3. **Plain browser tab** — last resort, and the only case that raises a
+1. **App-mode window** (`chromium --app=…`) — a chromeless standalone
+   window, no tabs or address bar, using a browser you already have.
+2. **Plain browser tab** — last resort, and the only case that raises a
    warning, since it's not the intended UI.
 
-If all three fail, the tool call returns an error containing the URL
-rather than hanging — the command stays queued, so opening the URL by
-hand and approving still runs it, and `status`/`wait` on the returned id
-picks up the result.
+If both fail, the tool call returns an error containing the URL rather
+than hanging — the command stays queued, so opening the URL by hand and
+approving still runs it, and `status`/`wait` on the returned id picks up
+the result.
+
+(An earlier version bundled a native-webview binary as step 1. It was
+dropped: it linked `libwebkit2gtk-4.0`, an EOL library current distros
+have replaced with 4.1, so it failed to start on any up-to-date Linux
+machine and fell through to the browser anyway — for a ~32 MB dependency
+and a confusing first-run failure.)
 
 ## When something goes wrong
 
@@ -182,13 +180,10 @@ To investigate the approval window specifically:
 claude-split-container --doctor
 ```
 
-It reports the project and `.tmp` paths, the webview binary and its
-permissions, `DISPLAY`/`WAYLAND_DISPLAY`, then actually tries to launch
-the window and prints the precise failure, followed by which of the three
-surfaces above are available. On an up-to-date Linux box the usual result
-is the bundled binary needing `libwebkit2gtk-4.0` while an app-mode
-browser is available — in which case you still get a standalone window
-and nothing needs fixing.
+It reports the project and `.tmp` paths, `DISPLAY`/`WAYLAND_DISPLAY`,
+which app-mode browser was found (if any), and the plain-tab opener that
+would be used as a last resort — plus, when no browser is available, the
+ones to install to get a standalone window back.
 
 ## Steering the workflow
 

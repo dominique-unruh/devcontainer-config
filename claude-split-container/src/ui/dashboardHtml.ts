@@ -205,7 +205,7 @@ export const DASHBOARD_HTML = `<!doctype html>
   // swallows, so there is nowhere for a user to see it.
   function renderBanner(status) {
     var bannerEl = document.getElementById("banner");
-    if (!status || status.surface !== "browser" || !status.windowError) {
+    if (!status || status.surface !== "browser" || !status.appWindowError) {
       bannerEl.className = "hidden";
       return;
     }
@@ -214,7 +214,7 @@ export const DASHBOARD_HTML = `<!doctype html>
     bannerEl.appendChild(
       el("div", null, "Showing in your browser: the standalone window could not be opened.")
     );
-    bannerEl.appendChild(el("div", null, status.windowError));
+    bannerEl.appendChild(el("div", null, status.appWindowError));
     var hint = el("div", null, "Diagnose with: ");
     var code = el("code", null, "claude-split-container --doctor");
     hint.appendChild(code);

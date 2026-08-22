@@ -30,25 +30,20 @@ describe("approval-UI degradation banner", () => {
   it("explains the fallback, and points at --doctor and the log", async () => {
     await boot([], {
       surface: "browser",
-      windowError: "the approval window exited immediately (code 127).",
+      appWindowError: "no Chromium-family browser found for --app mode",
       logPath: "/proj/.tmp/claude-split-container.log",
     });
 
     expect(banner().className).not.toContain("hidden");
     const text = banner().textContent!;
     expect(text).toContain("could not be opened");
-    expect(text).toContain("code 127");
+    expect(text).toContain("no Chromium-family browser");
     expect(text).toContain("claude-split-container --doctor");
     expect(text).toContain("/proj/.tmp/claude-split-container.log");
   });
 
-  it("stays hidden when the native window is working", async () => {
-    await boot([], { surface: "window" });
-    expect(banner().className).toContain("hidden");
-  });
-
-  it("stays hidden for a browser app-mode window, which is still a standalone window", async () => {
-    await boot([], { surface: "app-window", windowError: "webview missing libwebkit2gtk-4.0" });
+  it("stays hidden for an app-mode window, which is a real standalone window", async () => {
+    await boot([], { surface: "app-window" });
     expect(banner().className).toContain("hidden");
   });
 
@@ -60,7 +55,7 @@ describe("approval-UI degradation banner", () => {
   it("does not accumulate duplicate text across refreshes", async () => {
     const handle = await boot([], {
       surface: "browser",
-      windowError: "boom",
+      appWindowError: "boom",
       logPath: "/proj/.tmp/x.log",
     });
     await handle.refresh();

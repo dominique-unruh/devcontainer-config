@@ -70,11 +70,12 @@ let uiWarningDelivered = false;
  */
 function takeUiWarning(): string | undefined {
   if (uiWarningDelivered) return undefined;
-  if (uiStatus.surface !== "browser" || !uiStatus.windowError) return undefined;
+  if (uiStatus.surface !== "browser" || !uiStatus.appWindowError) return undefined;
   uiWarningDelivered = true;
   return (
-    `The approval UI opened in your browser rather than its own window: ${uiStatus.windowError} ` +
-    `Tell the user, and mention that \`claude-split-container --doctor\` explains it in full.`
+    `The approval UI opened as an ordinary browser tab rather than its own window: ` +
+    `${uiStatus.appWindowError}. Tell the user, and mention that ` +
+    `\`claude-split-container --doctor\` explains it in full.`
   );
 }
 
