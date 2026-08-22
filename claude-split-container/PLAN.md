@@ -348,7 +348,7 @@ claude --plugin-dir <path>/claude-split-container
 
 Verified end-to-end: the skill shows up as
 `claude-split-container:split-container` and the tools as
-`mcp__plugin_claude-split-container_claude-split-container__*`.
+`mcp__plugin_claude-split-container_split__*`.
 
 The plugin's bundled server registration (`.mcp.json` at plugin root) —
 no `--project-dir` needed, the server picks up cwd (= project root, where
@@ -371,7 +371,7 @@ no `--project-dir` needed, the server picks up cwd (= project root, where
 // underlying action proceeds):
 {
   "permissions": {
-    "allow": ["mcp__plugin_claude-split-container_claude-split-container__*"]
+    "allow": ["mcp__plugin_claude-split-container_split__*"]
   }
 }
 ```

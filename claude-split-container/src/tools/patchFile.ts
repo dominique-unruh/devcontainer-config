@@ -31,7 +31,10 @@ function runPatch(
     let output = "";
     child.stdout.on("data", (d) => (output += d.toString()));
     child.stderr.on("data", (d) => (output += d.toString()));
+    // A missing `patch` binary emits 'error'; unhandled, that would crash the whole MCP server.
+    child.on("error", (err) => resolveRun({ code: null, output: `could not run \`patch\`: ${err.message}` }));
     child.on("close", (code) => resolveRun({ code, output }));
+    child.stdin.on("error", () => {}); // the process may be gone before stdin is written
     child.stdin.write(patchText);
     child.stdin.end();
   });

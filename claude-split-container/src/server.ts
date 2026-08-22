@@ -19,12 +19,13 @@ function buildServer(): McpServer {
   server.registerTool(
     "run_bash_host",
     {
-      title: "Run bash on host",
+      title: "host bash",
       description:
         "Run a bash command on the HOST machine. Requires human approval via the approval UI. " +
         "stdout/stderr are written to new files under the project dir's .tmp/ subdir; the exit code " +
         "and each file's project-relative path (e.g. `.tmp/<name>.stdout`) and size are returned.",
       inputSchema: runBashHostShape,
+      annotations: { title: "host bash", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
     runBashHost
   );
@@ -32,11 +33,12 @@ function buildServer(): McpServer {
   server.registerTool(
     "run_bash_container",
     {
-      title: "Run bash in devcontainer",
+      title: "container bash",
       description:
         "Run a bash command inside the project's devcontainer (shares the project dir with the host). " +
         "No approval needed. Prefer this over run_bash_host whenever possible.",
       inputSchema: runBashContainerShape,
+      annotations: { title: "container bash", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     runBashContainer
   );
@@ -44,11 +46,12 @@ function buildServer(): McpServer {
   server.registerTool(
     "read_file",
     {
-      title: "Read host file",
+      title: "read host file",
       description:
         "Copy a host file into the project dir's .tmp/ subdir so it can be inspected. Returns the " +
         "copy's project-relative path (e.g. `.tmp/<name>`). Requires human approval.",
       inputSchema: readFileShape,
+      annotations: { title: "read host file", readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     readFile
   );
@@ -56,11 +59,12 @@ function buildServer(): McpServer {
   server.registerTool(
     "write_file",
     {
-      title: "Write host file",
+      title: "write host file",
       description:
         "Write a file on the host, either by copying a file from the project dir's .tmp/ subdir or " +
         "from literal content. Requires human approval.",
       inputSchema: writeFileShape,
+      annotations: { title: "write host file", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
     writeFile
   );
@@ -68,11 +72,12 @@ function buildServer(): McpServer {
   server.registerTool(
     "patch_file",
     {
-      title: "Patch host file",
+      title: "patch host file",
       description:
         "Apply a unified diff to a host file, atomically (dry-run checked first, backed up before the " +
         "real apply). Prefer this over write_file for editing existing text files. Requires human approval.",
       inputSchema: patchFileShape,
+      annotations: { title: "patch host file", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
     patchFile
   );
@@ -83,6 +88,7 @@ function buildServer(): McpServer {
       title: "Command status",
       description: "Non-blocking lookup of the current status/result for one or more command ids.",
       inputSchema: statusShape,
+      annotations: { title: "command status", readOnlyHint: true },
     },
     status
   );
@@ -93,6 +99,7 @@ function buildServer(): McpServer {
       title: "Wait for a command",
       description: "Block until any of the given command ids finishes or is rejected, or until timeout.",
       inputSchema: waitShape,
+      annotations: { title: "wait for command", readOnlyHint: true },
     },
     wait
   );
@@ -103,6 +110,7 @@ function buildServer(): McpServer {
       title: "Kill a command",
       description: "Cancel a pending or running command.",
       inputSchema: killShape,
+      annotations: { title: "kill command", readOnlyHint: false, destructiveHint: true },
     },
     kill
   );
@@ -113,6 +121,7 @@ function buildServer(): McpServer {
       title: "List running commands",
       description: "Return the ids of all commands currently running.",
       inputSchema: runningShape,
+      annotations: { title: "list running commands", readOnlyHint: true },
     },
     running
   );

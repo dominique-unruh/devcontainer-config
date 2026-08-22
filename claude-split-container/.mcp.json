@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "claude-split-container": {
+    "split": {
       "command": "${CLAUDE_PLUGIN_ROOT}/claude-split-container"
     }
   }

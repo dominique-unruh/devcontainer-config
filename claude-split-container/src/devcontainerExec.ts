@@ -57,9 +57,28 @@ function runProcess(
   }
 
   const result = new Promise<ExecResult>((resolveP) => {
-    child.on("close", (code) => {
+    let settled = false;
+    const settle = (r: ExecResult) => {
+      if (settled) return;
+      settled = true;
       if (timer) clearTimeout(timer);
-      resolveP({
+      resolveP(r);
+    };
+
+    // Without this, a missing binary (no `devcontainer` on PATH, say) emits an unhandled 'error'
+    // event, which crashes the whole MCP server instead of failing the one command.
+    child.on("error", (err) => {
+      settle({
+        exitCode: null,
+        stdout: truncate(stdout),
+        stderr: `${stderr}${stderr ? "\n" : ""}could not run \`${cmd}\`: ${err.message}`,
+        timedOut,
+        killed: killedByUs,
+      });
+    });
+
+    child.on("close", (code) => {
+      settle({
         exitCode: code,
         stdout: truncate(stdout),
         stderr: truncate(stderr),

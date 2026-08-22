@@ -37,7 +37,11 @@ claude --plugin-dir <path-to-this-repo>/claude-split-container
 That loads, for the session:
 
 - the MCP server, as
-  `mcp__plugin_claude-split-container_claude-split-container__*`
+  `mcp__plugin_claude-split-container_split__*` — so calls show up in
+  the transcript as e.g. `split - run_bash_host (MCP)(command: …)`. The
+  server is deliberately named `split` rather than repeating the plugin
+  name, which would otherwise render as the uninformative
+  `claude-split-container:claude-split-container`.
 - the skill, as `claude-split-container:split-container` — which teaches
   Claude to prefer the container, keep host commands simple and
   decomposed, batch approvals via background jobs, and prefer
@@ -52,7 +56,7 @@ proceeds:
 // settings.json
 {
   "permissions": {
-    "allow": ["mcp__plugin_claude-split-container_claude-split-container__*"]
+    "allow": ["mcp__plugin_claude-split-container_split__*"]
   }
 }
 ```
@@ -117,23 +121,22 @@ Inside it, **`.tmp/`** is where this server puts files it names itself:
 | `run_bash_host` | required | `bash -e -c`, stdout/stderr written to `.tmp/*.stdout`/`.stderr` |
 | `read_file` | required | copies a host file into `.tmp/` |
 | `write_file` | required | writes a `.tmp/` file or literal content to a host path |
-
-File names come back project-relative, prefix included (e.g.
-`.tmp/1787391261592-2-f84baf66.stdout`), so they can be used verbatim —
-as a path in a container command, with the built-in file tools, or as
-`write_file`'s `sharedFile`. A bare filename is accepted there too.
 | `patch_file` | required | applies a unified diff, atomically (dry-run first, backup + restore on failure) |
+| `run_bash_container` | none | `devcontainer exec`, output returned inline |
+| `status` | — | look up one or more command ids |
+| `wait` | — | block until any of several ids finishes/is rejected (mandatory timeout) |
+| `kill` | — | cancel a pending or running command |
+| `running` | — | list ids currently running |
 
 The three file tools are for host files **outside** the project dir. For
 files inside it, use Claude Code's ordinary `Read`/`Write`/`Edit` — the
 project dir is already shared with the container, so those need no
 approval and are the faster path.
 
-| `run_bash_container` | none | `devcontainer exec`, output returned inline |
-| `status` | — | look up one or more command ids |
-| `wait` | — | block until any of several ids finishes/is rejected (mandatory timeout) |
-| `kill` | — | cancel a pending or running command |
-| `running` | — | list ids currently running |
+File names come back project-relative, prefix included (e.g.
+`.tmp/1787391261592-2-f84baf66.stdout`), so they can be used verbatim —
+as a path in a container command, with the built-in file tools, or as
+`write_file`'s `sharedFile`. A bare filename is accepted there too.
 
 All 5 action tools accept `background` (return an id immediately, before
 approval) and `after` (a list of command ids that must all succeed
