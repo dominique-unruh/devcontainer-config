@@ -101,10 +101,16 @@ Pass `--project-dir <dir>` or set `PROJECT_DIR` explicitly if that
 assumption doesn't hold for your setup (e.g. a globally-registered
 server, or launching `claude` from a nested directory).
 
-## Shared directory
+## Project directory and `.tmp/`
 
-The shared directory is the project dir's `.tmp/` subfolder — add it to
-the project's `.gitignore`:
+The **project directory** is what host and container share — it's the
+same files on both sides, so anything written in one is immediately
+visible in the other. It's also what "the shared dir" means throughout
+this project; there is no separate shared location.
+
+Inside it, **`.tmp/`** is where this server puts files it names itself:
+`run_bash_host`'s captured stdout/stderr, and copies made by `read_file`.
+Add it to the project's `.gitignore`:
 
 ```
 .tmp/
@@ -118,6 +124,12 @@ the project's `.gitignore`:
 | `read_file` | required | copies a host file into `.tmp/` |
 | `write_file` | required | writes a `.tmp/` file or literal content to a host path |
 | `patch_file` | required | applies a unified diff, atomically (dry-run first, backup + restore on failure) |
+
+The three file tools are for host files **outside** the project dir. For
+files inside it, use Claude Code's ordinary `Read`/`Write`/`Edit` — the
+project dir is already shared with the container, so those need no
+approval and are the faster path.
+
 | `run_bash_container` | none | `devcontainer exec`, output returned inline |
 | `status` | — | look up one or more command ids |
 | `wait` | — | block until any of several ids finishes/is rejected (mandatory timeout) |
@@ -142,22 +154,25 @@ tool call returns an error containing the URL rather than hanging — the
 command stays queued, so opening the URL by hand and approving still runs
 it, and `status`/`wait` on the returned id picks up the result.
 
-## Enforcing the workflow
+## Steering the workflow
 
-The skill alone only *suggests* this workflow, so Claude tends to reach
-for the built-in `Bash`/`Read`/`Edit` tools out of habit and you end up
-saying "use the split container plugin" by hand. The plugin therefore
-ships two hooks that make it automatic:
+A skill is only consulted when it looks relevant, so on its own Claude
+tends to reach for the built-in `Bash`/`Read`/`Edit` tools out of habit
+and you end up saying "use the split container plugin" by hand. The
+plugin therefore ships a **UserPromptSubmit** hook that states the
+workflow up front, so the right tool gets picked from the first turn.
 
-- a **PreToolUse** hook that denies the built-in host tools and names the
-  MCP tool to use instead, and
-- a **UserPromptSubmit** hook that states the workflow up front, so the
-  right tool is chosen from the first turn rather than after a denial.
+Nothing is blocked — the built-in tools remain available, and this is
+steering rather than enforcement. Set the permissions in `settings.json`
+if you want a hard guarantee.
 
-Control the scope with `SPLIT_CONTAINER_ENFORCE`:
+Control it with `SPLIT_CONTAINER_ENFORCE`:
 
 | Value | Effect |
 |---|---|
-| `all` (default) | block `Bash`/`BashOutput`/`KillShell` **and** `Read`/`Write`/`Edit`/`NotebookEdit`/`Glob`/`Grep` |
-| `bash` | block only the Bash tools; built-in file tools keep working |
-| `off` | disable both hooks entirely |
+| `all` (default) | steer shell commands, and spell out the file split: built-in tools inside the project dir, MCP tools for host files outside it |
+| `bash` | steer only shell commands; say nothing about files |
+| `off` | emit nothing |
+
+The hook reads the environment of the `claude` process, so set it for the
+whole session (`SPLIT_CONTAINER_ENFORCE=off claude …`), not per call.

@@ -52,7 +52,7 @@ export async function copyIntoTmpDir(sourcePath: string): Promise<WrittenFile> {
   return { name, bytes: st.size };
 }
 
-/** Resolve a filename the caller says lives in the shared .tmp dir into an absolute path. */
+/** Resolve a filename the caller says lives in the project dir's .tmp/ subdir into an absolute path. */
 export function tmpFilePath(name: string): string {
   return join(TMP_DIR, name);
 }

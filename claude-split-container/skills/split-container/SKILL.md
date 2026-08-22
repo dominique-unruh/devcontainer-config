@@ -16,6 +16,26 @@ Two execution targets, very different costs:
 
 Everything below follows from that asymmetry.
 
+## The project dir is not "the host"
+
+The project directory is shared between host and container and is the
+work you were invited to do, so it needs no approval ceremony. **Use the
+ordinary built-in `Read`/`Write`/`Edit`/`Glob`/`Grep` tools for files
+inside the project dir** — they're the fastest path and edits are
+immediately visible to the container too.
+
+The MCP file tools exist for the *rest* of the host:
+
+| Target | Use |
+|---|---|
+| Files in the project dir | built-in `Read`/`Write`/`Edit`/`Glob`/`Grep` |
+| Host files outside the project dir | `read_file` / `write_file` / `patch_file` (approved) |
+| Running anything | `run_bash_container`, or `run_bash_host` if it must be the host |
+
+So the split is really about **commands** and about **host files outside
+the project** — not about ordinary editing of the project you're working
+on.
+
 ## Prefer the container
 
 Default to `run_bash_container`. Only go to the host when the task
@@ -54,8 +74,10 @@ run_bash_container: grep token .tmp/<ts>-<id>.stdout | awk '{print $2}' | sort -
 ```
 
 This is why `run_bash_host` writes stdout/stderr into `.tmp/` instead of
-returning them: the output is already sitting in the shared dir, ready
-for container-side processing.
+returning them: the output lands in the project dir, so the
+follow-up costs nothing. And since `.tmp/` *is* in the project dir, the
+built-in `Read`/`Grep` tools work on those files directly too — reach for
+whichever is more convenient; neither needs approval.
 
 Corollaries:
 
@@ -69,11 +91,14 @@ Corollaries:
 
 ## Prefer `patch_file` over `write_file`
 
-For editing an existing text file on the host, send a diff, not a whole
-file. A diff shows exactly what changes; a full-file overwrite forces
-the reviewer to diff it themselves or trust you. `patch_file` is also
-atomic — it dry-runs first and restores a backup on failure, so a patch
-that doesn't apply changes nothing.
+This applies to host files **outside** the project dir — inside it, just
+use the built-in `Edit` tool as normal.
+
+For editing an existing text file out on the host, send a diff, not a
+whole file. A diff shows exactly what changes; a full-file overwrite
+forces the reviewer to diff it themselves or trust you. `patch_file` is
+also atomic — it dry-runs first and restores a backup on failure, so a
+patch that doesn't apply changes nothing.
 
 Use `write_file` for new files, binary content, or a genuine
 full-content replacement.
