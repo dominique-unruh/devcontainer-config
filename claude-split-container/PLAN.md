@@ -247,6 +247,7 @@ from hitting the API, the loopback bind is what stops the network.
 ```
 claude-split-container/
   PLAN.md
+  claude-split-container # launcher script: runs `node dist/server.js` next to itself
   package.json           # deps: @modelcontextprotocol/sdk, webview (native window)
   tsconfig.json
   src/
@@ -268,8 +269,12 @@ claude-split-container/
       window.ts             # webview-backed window, opened lazily
     sharedDir.ts            # .tmp/ naming, write-output-file helpers
     devcontainerExec.ts     # wraps `devcontainer exec`
-  skill/
-    SKILL.md                # the "prefer container / decompose / prefer patch" guidance
+  .claude-plugin/
+    plugin.json             # makes this dir a Claude Code plugin (skill + MCP server in one --plugin-dir)
+  .mcp.json                 # plugin-bundled MCP server registration (${CLAUDE_PLUGIN_ROOT}/claude-split-container)
+  skills/
+    split-container/
+      SKILL.md              # the "prefer container / decompose / prefer patch" guidance
   README.md                 # setup: `claude mcp add`, required host tools (devcontainer CLI, patch, a system webview component)
 ```
 
@@ -325,22 +330,31 @@ Guidance for the calling agent, roughly:
   (`sudo apt-get install ...` etc.) — the container is disposable and
   exists only for this work, unlike the host.
 
-Open call (carried over, still unresolved): whether this should be a
-`skill/SKILL.md` (contextually triggered) versus baking the same guidance
-into each tool's MCP description (always visible the moment the tool is
-offered). Current plan: **both** — short reminders in tool descriptions,
-`SKILL.md` for fuller rationale. Flag if you'd rather pick just one.
+Resolved: **both** — short reminders in the tool descriptions themselves,
+`skills/split-container/SKILL.md` for the fuller rationale.
 
-## Registration snippet (for this repo / any consuming project)
+## Registration (for this repo / any consuming project)
+
+This directory doubles as a Claude Code **plugin**, so one flag loads the
+MCP server *and* the skill together — nothing to copy or register:
+
+```
+claude --plugin-dir <path>/claude-split-container
+```
+
+Verified end-to-end: the skill shows up as
+`claude-split-container:split-container` and the tools as
+`mcp__plugin_claude-split-container_claude-split-container__*`.
+
+The plugin's bundled server registration (`.mcp.json` at plugin root) —
+no `--project-dir` needed, the server picks up cwd (= project root, where
+`claude` was launched):
 
 ```jsonc
-// .mcp.json — no --project-dir needed; server picks up cwd (= project
-// root, since that's where the .mcp.json-owning `claude` was launched)
 {
   "mcpServers": {
     "claude-split-container": {
-      "command": "node",
-      "args": ["<path>/claude-split-container/dist/server.js"]
+      "command": "${CLAUDE_PLUGIN_ROOT}/claude-split-container"
     }
   }
 }
@@ -353,10 +367,14 @@ offered). Current plan: **both** — short reminders in tool descriptions,
 // underlying action proceeds):
 {
   "permissions": {
-    "allow": ["mcp__claude-split-container__*"]
+    "allow": ["mcp__plugin_claude-split-container_claude-split-container__*"]
   }
 }
 ```
+
+(Registered by hand via `claude mcp add` instead of as a plugin, the
+tools are named `mcp__claude-split-container__*` — no `plugin_` prefix —
+so the glob has to match that form instead.)
 
 ## Build/verification plan
 

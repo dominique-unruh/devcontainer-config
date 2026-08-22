@@ -1,0 +1,32 @@
+#!/bin/sh
+# Launcher for the claude-split-container MCP server.
+#
+# Exists so `claude mcp add` can point at one short path instead of
+# `node /long/path/to/claude-split-container/dist/server.js`. Resolves its own
+# location, so it works from any cwd and via a symlink on $PATH.
+#
+# The server takes the project dir from cwd (which Claude Code sets to the
+# project root), so no arguments are needed here — but any that are passed
+# get forwarded through, e.g. --project-dir.
+
+set -e
+
+# Resolve this script's real path, following symlinks (so a symlink on $PATH
+# still finds dist/server.js next to the actual file).
+script="$0"
+while [ -L "$script" ]; do
+  link=$(readlink "$script")
+  case "$link" in
+    /*) script="$link" ;;
+    *) script="$(dirname "$script")/$link" ;;
+  esac
+done
+dir=$(cd "$(dirname "$script")" && pwd)
+
+server="$dir/dist/server.js"
+if [ ! -f "$server" ]; then
+  echo "claude-split-container: $server not found — run 'npm run build' in $dir first." >&2
+  exit 1
+fi
+
+exec node "$server" "$@"
