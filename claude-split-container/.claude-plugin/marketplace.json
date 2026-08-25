@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "devcontainer-config",
+  "description": "Plugins from the devcontainer-config repo. Named after the repo rather than this directory so the plugin id reads claude-split-container@devcontainer-config, not the same word twice.",
+  "owner": {
+    "name": "Dominique Unruh"
+  },
+  "plugins": [
+    {
+      "name": "claude-split-container",
+      "description": "Split host/container working style: a gated host that needs human approval for every action, plus a free devcontainer sharing the project dir.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

@@ -24,11 +24,53 @@ npm run typecheck
 npm test
 ```
 
-## Use it (recommended: as a plugin)
+## Install it permanently
+
+```
+./install.sh
+```
+
+Installs the plugin into the local Claude Code, or refreshes it if it is
+already installed; re-run it after any source change. Restart Claude Code
+to pick up the result. `--scope user|project|local` (default `user`) and
+`--no-build` are accepted.
+
+The script builds, registers this directory as a marketplace, and
+installs `claude-split-container@devcontainer-config`. (`.claude-plugin/`
+holds both manifests: `marketplace.json`, listing one plugin sourced as
+`./`, and `plugin.json` for the plugin itself. The marketplace is named
+after the repo rather than this directory so the id doesn't read as the
+same word twice.) Two things about the install are worth knowing:
+
+- `claude plugin install` **snapshots** the plugin directory into
+  `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` rather than
+  referencing this tree — so edits here don't reach the installed copy
+  until you re-run the script. The snapshot does include `dist/` and
+  `node_modules/`, gitignored though they are, so the built server comes
+  along.
+- The refresh is `uninstall` + `install`, not `claude plugin update`.
+  `update` compares manifest versions and no-ops when they match, which
+  is the normal case for a working tree whose version rarely moves.
+
+Approval happens inside this server (via the local dashboard UI), not
+through Claude Code's own permission prompts — so allow its tools to be
+*called* and let the server decide whether the underlying action
+proceeds:
+
+```jsonc
+// settings.json
+{
+  "permissions": {
+    "allow": ["mcp__plugin_claude-split-container_split__*"]
+  }
+}
+```
+
+## Use it for one session only
 
 This directory is a Claude Code **plugin**: it bundles both the MCP
 server (`.mcp.json`) and the guidance skill (`skills/split-container/`).
-One flag gives you everything, with nothing to copy or register:
+One flag gives you everything, with nothing installed:
 
 ```
 claude --plugin-dir <path-to-this-repo>/claude-split-container
@@ -47,19 +89,7 @@ That loads, for the session:
   decomposed, batch approvals via background jobs, and prefer
   `patch_file` over `write_file`.
 
-Approval happens inside this server (via the local dashboard UI), not
-through Claude Code's own permission prompts — so allow its tools to be
-*called* and let the server decide whether the underlying action
-proceeds:
-
-```jsonc
-// settings.json
-{
-  "permissions": {
-    "allow": ["mcp__plugin_claude-split-container_split__*"]
-  }
-}
-```
+The same permissions allowlist as above applies.
 
 ### Alternative: register the MCP server by hand
 

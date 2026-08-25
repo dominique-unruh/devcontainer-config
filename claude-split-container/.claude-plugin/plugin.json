@@ -1,5 +1,6 @@
 {
   "name": "claude-split-container",
+  "author": { "name": "Dominique Unruh" },
   "description": "Split host/container working style: a gated host that needs human approval for every action, plus a free devcontainer sharing the project dir. Ships the guidance skill for the claude-split-container MCP server.",
   "version": "0.1.0"
 }
