@@ -96,11 +96,63 @@ export function runBashHost(command: string, timeoutMs?: number): ExecHandle {
   return runProcess("bash", ["-e", "-c", command], { cwd: PROJECT_DIR, timeoutMs });
 }
 
-/** Run a bash command inside the project's devcontainer via `devcontainer exec`. */
-export function runBashContainer(command: string, timeoutMs?: number): ExecHandle {
+/**
+ * Whether we've already brought the devcontainer up in this process. `devcontainer up` is
+ * idempotent but slow, so we only run it until it succeeds once, then reuse the running container.
+ */
+let containerUp = false;
+
+/** Bring the project's devcontainer up (`devcontainer up`) — idempotent, a no-op build if it's already running. */
+function devcontainerUp(timeoutMs?: number): ExecHandle {
+  return runProcess("devcontainer", ["up", "--workspace-folder", PROJECT_DIR], {
+    cwd: PROJECT_DIR,
+    timeoutMs,
+  });
+}
+
+/** Run the actual command inside the (assumed-running) devcontainer via `devcontainer exec`. */
+function devcontainerExec(command: string, timeoutMs?: number): ExecHandle {
   return runProcess(
     "devcontainer",
     ["exec", "--workspace-folder", PROJECT_DIR, "--", "bash", "-e", "-c", command],
     { cwd: PROJECT_DIR, timeoutMs }
   );
+}
+
+/**
+ * Run a bash command inside the project's devcontainer. Starts the container first if it isn't up
+ * yet (`devcontainer exec` fails outright against a stopped container), so callers don't have to
+ * bring it up manually. The startup is done once per process and cached; if it fails, the failure is
+ * surfaced and retried on the next call.
+ */
+export function runBashContainer(command: string, timeoutMs?: number): ExecHandle {
+  let active: ExecHandle | undefined;
+  let killed = false;
+
+  const kill = () => {
+    killed = true;
+    active?.kill();
+  };
+
+  const result = (async (): Promise<ExecResult> => {
+    if (!containerUp) {
+      active = devcontainerUp(timeoutMs);
+      const up = await active.result;
+      if (killed) return up;
+      if (up.exitCode !== 0) {
+        return {
+          ...up,
+          stderr: `${up.stderr}${up.stderr ? "\n" : ""}could not start the devcontainer (\`devcontainer up\`); command not run`,
+        };
+      }
+      containerUp = true;
+    }
+    if (killed) {
+      return { exitCode: null, stdout: "", stderr: "killed before start", timedOut: false, killed: true };
+    }
+    active = devcontainerExec(command, timeoutMs);
+    return active.result;
+  })();
+
+  return { result, kill };
 }
