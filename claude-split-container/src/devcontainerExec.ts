@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PROJECT_DIR } from "./sharedDir.js";
 
 export interface ExecResult {
@@ -102,19 +105,43 @@ export function runBashHost(command: string, timeoutMs?: number): ExecHandle {
  */
 let containerUp = false;
 
+/**
+ * Default config for projects that ship no devcontainer config of their own: a static file bundled
+ * with the plugin, resolved relative to this server file so it works both under `tsx` (from `src/`)
+ * and as the bundled `dist/server.js` — both are siblings of `assets/` under the plugin root.
+ */
+const DEFAULT_CONFIG_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "default-devcontainer.json");
+
+/** Whether the project supplies its own devcontainer config (in either of the two spec locations). */
+function hasProjectConfig(): boolean {
+  return (
+    existsSync(join(PROJECT_DIR, ".devcontainer", "devcontainer.json")) ||
+    existsSync(join(PROJECT_DIR, ".devcontainer.json"))
+  );
+}
+
+/**
+ * devcontainer CLI args selecting the config to use: none (let the CLI auto-discover) if the project
+ * ships its own config, otherwise `--override-config` pointing at the bundled default. The same args
+ * must be passed to both `up` and `exec` so they agree on which container this is.
+ */
+function configArgs(): string[] {
+  return hasProjectConfig() ? [] : ["--override-config", DEFAULT_CONFIG_PATH];
+}
+
 /** Bring the project's devcontainer up (`devcontainer up`) — idempotent, a no-op build if it's already running. */
-function devcontainerUp(timeoutMs?: number): ExecHandle {
-  return runProcess("devcontainer", ["up", "--workspace-folder", PROJECT_DIR], {
+function devcontainerUp(cfgArgs: string[], timeoutMs?: number): ExecHandle {
+  return runProcess("devcontainer", ["up", "--workspace-folder", PROJECT_DIR, ...cfgArgs], {
     cwd: PROJECT_DIR,
     timeoutMs,
   });
 }
 
 /** Run the actual command inside the (assumed-running) devcontainer via `devcontainer exec`. */
-function devcontainerExec(command: string, timeoutMs?: number): ExecHandle {
+function devcontainerExec(cfgArgs: string[], command: string, timeoutMs?: number): ExecHandle {
   return runProcess(
     "devcontainer",
-    ["exec", "--workspace-folder", PROJECT_DIR, "--", "bash", "-e", "-c", command],
+    ["exec", "--workspace-folder", PROJECT_DIR, ...cfgArgs, "--", "bash", "-e", "-c", command],
     { cwd: PROJECT_DIR, timeoutMs }
   );
 }
@@ -122,7 +149,8 @@ function devcontainerExec(command: string, timeoutMs?: number): ExecHandle {
 /**
  * Run a bash command inside the project's devcontainer. Starts the container first if it isn't up
  * yet (`devcontainer exec` fails outright against a stopped container), so callers don't have to
- * bring it up manually. The startup is done once per process and cached; if it fails, the failure is
+ * bring it up manually. Projects without their own devcontainer config get a minimal bundled default
+ * (`ubuntu:24.04`). The startup is done once per process and cached; if it fails, the failure is
  * surfaced and retried on the next call.
  */
 export function runBashContainer(command: string, timeoutMs?: number): ExecHandle {
@@ -135,8 +163,9 @@ export function runBashContainer(command: string, timeoutMs?: number): ExecHandl
   };
 
   const result = (async (): Promise<ExecResult> => {
+    const cfgArgs = configArgs();
     if (!containerUp) {
-      active = devcontainerUp(timeoutMs);
+      active = devcontainerUp(cfgArgs, timeoutMs);
       const up = await active.result;
       if (killed) return up;
       if (up.exitCode !== 0) {
@@ -150,7 +179,7 @@ export function runBashContainer(command: string, timeoutMs?: number): ExecHandl
     if (killed) {
       return { exitCode: null, stdout: "", stderr: "killed before start", timedOut: false, killed: true };
     }
-    active = devcontainerExec(command, timeoutMs);
+    active = devcontainerExec(cfgArgs, command, timeoutMs);
     return active.result;
   })();
 

@@ -1,0 +1,14 @@
+{
+  "image": "ubuntu:24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "dev",
+      "userUid": "1000",
+      "userGid": "1000",
+      "installZsh": false,
+      "upgradePackages": true
+    },
+    "ghcr.io/hwaien/devcontainer-features/match-host-time-zone": {}
+  },
+  "remoteUser": "dev"
+}
