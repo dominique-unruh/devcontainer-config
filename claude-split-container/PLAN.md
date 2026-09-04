@@ -1,5 +1,21 @@
 # PLAN: claude-split-container
 
+> **Superseded (historical design doc).** This records the original design,
+> in which the host was reached through four human-approved MCP tools
+> (`run_bash_host`, `read_file`, `write_file`, `patch_file`) fronted by a local
+> web **approval dashboard**. That whole host-approval path — the four tools,
+> the dashboard/window UI, its bootstrap-file auth, the `waiting-approval`
+> job gate, and `--doctor` — has since been **removed**. The current design:
+> `run_bash_container` (free, no approval) is the only MCP way to run shell
+> commands and is the default; the **host is reached only through Claude
+> Code's built-in `Bash` tool**, which a PreToolUse hook (`gate-bash.mjs`)
+> denies unless the command's first line is `# NOT IN CONTAINER: <reason>`;
+> host/other files are edited with the built-in `Read`/`Write`/`Edit` tools.
+> The job model (`status`/`wait`/`kill`/`running`, `background`, `after`,
+> cascade-on-failure) survives, minus the approval gate. Read `README.md` and
+> `skills/split-container/SKILL.md` for the current behavior; the rest of this
+> file is kept only for the "why" behind the surviving pieces.
+
 MCP server + Claude Code skill for dual-environment work: host (gated,
 confirmed) and devcontainer (free, no confirmation). Background: see
 `../convo.html` (design discussion that led here — container-use rejected

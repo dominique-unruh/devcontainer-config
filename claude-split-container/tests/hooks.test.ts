@@ -3,20 +3,28 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const HOOK = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks", "remind.mjs");
+const HOOKS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks");
+const REMIND = join(HOOKS_DIR, "remind.mjs");
+const GATE = join(HOOKS_DIR, "gate-bash.mjs");
 
 /** Run the reminder hook with a given SPLIT_CONTAINER_ENFORCE value and return its stdout. */
-function runHook(mode?: string): string {
+function runRemind(mode?: string): string {
   const env = { ...process.env };
   if (mode === undefined) delete env.SPLIT_CONTAINER_ENFORCE;
   else env.SPLIT_CONTAINER_ENFORCE = mode;
-  return execFileSync("node", [HOOK], { env, encoding: "utf8" });
+  return execFileSync("node", [REMIND], { env, encoding: "utf8" });
 }
 
-function parsed(mode?: string) {
-  return JSON.parse(runHook(mode)) as {
-    hookSpecificOutput: { hookEventName: string; additionalContext: string };
-  };
+/** Run the gate hook with a Bash tool_input.command on stdin; return its stdout. */
+function runGate(command: string, mode?: string): string {
+  const env = { ...process.env };
+  if (mode === undefined) delete env.SPLIT_CONTAINER_ENFORCE;
+  else env.SPLIT_CONTAINER_ENFORCE = mode;
+  return execFileSync("node", [GATE], {
+    env,
+    encoding: "utf8",
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }),
+  });
 }
 
 describe("SessionStart reminder hook", () => {
@@ -24,7 +32,7 @@ describe("SessionStart reminder hook", () => {
   // Claude Code but is never injected into the model's context, so the reminder
   // silently does nothing. It must be JSON with additionalContext.
   it("emits JSON with hookSpecificOutput.additionalContext, not plain text", () => {
-    const raw = runHook();
+    const raw = runRemind();
     expect(raw.startsWith("{")).toBe(true);
     const out = JSON.parse(raw);
     expect(out.hookSpecificOutput.hookEventName).toBe("SessionStart");
@@ -32,32 +40,40 @@ describe("SessionStart reminder hook", () => {
     expect(out.hookSpecificOutput.additionalContext.length).toBeGreaterThan(0);
   });
 
-  it("names the MCP tools to use instead of built-in Bash", () => {
-    const ctx = parsed().hookSpecificOutput.additionalContext;
+  it("steers to run_bash_container and documents the built-in Bash gate", () => {
+    const ctx = JSON.parse(runRemind()).hookSpecificOutput.additionalContext;
     expect(ctx).toContain("run_bash_container");
-    expect(ctx).toContain("run_bash_host");
     expect(ctx).toMatch(/built-in Bash/);
+    expect(ctx).toContain("# NOT IN CONTAINER");
   });
 
-  it("explains the project-dir vs host-file split in the default mode", () => {
-    const ctx = parsed("all").hookSpecificOutput.additionalContext;
-    expect(ctx).toContain("project dir");
-    expect(ctx).toContain("read_file/write_file/patch_file");
-  });
-
-  it("omits file-tool guidance in bash mode", () => {
-    const ctx = parsed("bash").hookSpecificOutput.additionalContext;
-    expect(ctx).toContain("run_bash_container");
-    expect(ctx).not.toContain("read_file/write_file/patch_file");
+  it("no longer references the removed host/file MCP tools", () => {
+    const ctx = JSON.parse(runRemind()).hookSpecificOutput.additionalContext;
+    expect(ctx).not.toContain("run_bash_host");
+    expect(ctx).not.toContain("read_file");
+    expect(ctx).not.toContain("write_file");
+    expect(ctx).not.toContain("patch_file");
   });
 
   it("emits nothing at all when disabled", () => {
-    expect(runHook("off")).toBe("");
+    expect(runRemind("off")).toBe("");
+  });
+});
+
+describe("gate-bash PreToolUse hook", () => {
+  it("denies a plain command with routing guidance", () => {
+    const out = JSON.parse(runGate("grep foo bar"));
+    expect(out.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(out.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(out.hookSpecificOutput.permissionDecisionReason).toContain("run_bash_container");
+    expect(out.hookSpecificOutput.permissionDecisionReason).toContain("# NOT IN CONTAINER");
   });
 
-  it("treats an unrecognised value like the default mode", () => {
-    expect(parsed("something-else").hookSpecificOutput.additionalContext).toContain(
-      "read_file/write_file/patch_file"
-    );
+  it("allows a command whose first line opts in with # NOT IN CONTAINER", () => {
+    expect(runGate("# NOT IN CONTAINER: needs the host docker daemon\ndocker ps")).toBe("");
+  });
+
+  it("emits nothing (allows) when disabled", () => {
+    expect(runGate("grep foo bar", "off")).toBe("");
   });
 });

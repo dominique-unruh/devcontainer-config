@@ -7,8 +7,8 @@ export const runBashContainerShape = {
     .string()
     .describe(
       "Bash script to run inside the project's devcontainer (bash -e -c, via `devcontainer exec`). " +
-        "No approval needed — freely install tools with sudo, explore, iterate. Prefer this over " +
-        "run_bash_host whenever the task doesn't specifically require the host."
+        "No approval needed — freely install tools with sudo, explore, iterate. This is the default " +
+        "way to run shell commands; the built-in Bash tool is host-only and gated."
     ),
   background: z
     .boolean()
@@ -36,7 +36,6 @@ export async function runBashContainer(rawArgs: z.infer<typeof RunBashContainerA
   const outcome = await submitJob(
     {
       tool: "run_bash_container",
-      needsApproval: false,
       summary: args.command,
       after: args.after,
       background: args.background,

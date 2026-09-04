@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "claude-split-container",
-      "description": "Split host/container working style: a gated host that needs human approval for every action, plus a free devcontainer sharing the project dir.",
+      "description": "Split host/container working style: a free devcontainer (run_bash_container) sharing the project dir is the default for shell work; the host is reachable only through the built-in Bash tool, gated by a hook.",
       "source": "./",
       "category": "productivity"
     }

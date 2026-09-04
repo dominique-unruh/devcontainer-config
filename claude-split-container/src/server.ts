@@ -2,11 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-import { runBashHost, runBashHostShape } from "./tools/runBashHost.js";
 import { runBashContainer, runBashContainerShape } from "./tools/runBashContainer.js";
-import { readFile, readFileShape } from "./tools/readFile.js";
-import { writeFile, writeFileShape } from "./tools/writeFile.js";
-import { patchFile, patchFileShape } from "./tools/patchFile.js";
 import { status, statusShape } from "./tools/status.js";
 import { wait, waitShape } from "./tools/wait.js";
 import { kill, killShape } from "./tools/kill.js";
@@ -17,69 +13,17 @@ function buildServer(): McpServer {
   const server = new McpServer({ name: "claude-split-container", version: "0.1.0" });
 
   server.registerTool(
-    "run_bash_host",
-    {
-      title: "host bash",
-      description:
-        "Run a bash command on the HOST machine. Requires human approval via the approval UI. " +
-        "stdout/stderr are written to new files under the project dir's .tmp/ subdir; the exit code " +
-        "and each file's project-relative path (e.g. `.tmp/<name>.stdout`) and size are returned.",
-      inputSchema: runBashHostShape,
-      annotations: { title: "host bash", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-    },
-    runBashHost
-  );
-
-  server.registerTool(
     "run_bash_container",
     {
       title: "container bash",
       description:
         "Run a bash command inside the project's devcontainer (shares the project dir with the host). " +
-        "No approval needed. Prefer this over run_bash_host whenever possible.",
+        "No approval needed. This is the default way to run shell commands; the built-in Bash tool is " +
+        "host-only and gated.",
       inputSchema: runBashContainerShape,
       annotations: { title: "container bash", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     runBashContainer
-  );
-
-  server.registerTool(
-    "read_file",
-    {
-      title: "read host file",
-      description:
-        "Copy a host file into the project dir's .tmp/ subdir so it can be inspected. Returns the " +
-        "copy's project-relative path (e.g. `.tmp/<name>`). Requires human approval.",
-      inputSchema: readFileShape,
-      annotations: { title: "read host file", readOnlyHint: true, destructiveHint: false, openWorldHint: true },
-    },
-    readFile
-  );
-
-  server.registerTool(
-    "write_file",
-    {
-      title: "write host file",
-      description:
-        "Write a file on the host, either by copying a file from the project dir's .tmp/ subdir or " +
-        "from literal content. Requires human approval.",
-      inputSchema: writeFileShape,
-      annotations: { title: "write host file", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-    },
-    writeFile
-  );
-
-  server.registerTool(
-    "patch_file",
-    {
-      title: "patch host file",
-      description:
-        "Apply a unified diff to a host file, atomically (dry-run checked first, backed up before the " +
-        "real apply). Prefer this over write_file for editing existing text files. Requires human approval.",
-      inputSchema: patchFileShape,
-      annotations: { title: "patch host file", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-    },
-    patchFile
   );
 
   server.registerTool(
@@ -130,20 +74,6 @@ function buildServer(): McpServer {
 }
 
 async function main() {
-  // `--doctor` reports why the native approval window can't start. Useful because the failure
-  // otherwise only shows up as a browser fallback, with the reason buried in the server's stderr.
-  if (process.argv.includes("--doctor")) {
-    const { diagnoseWindow } = await import("./ui/window.js");
-    const { PROJECT_DIR, TMP_DIR } = await import("./sharedDir.js");
-    const { LOG_PATH } = await import("./log.js");
-    console.log(`project dir: ${PROJECT_DIR}`);
-    console.log(`.tmp dir:    ${TMP_DIR}`);
-    console.log(`log file:    ${LOG_PATH}`);
-    console.log("");
-    console.log(await diagnoseWindow());
-    process.exit(0);
-  }
-
   const server = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);

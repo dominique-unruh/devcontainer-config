@@ -1,35 +1,21 @@
 import { EventEmitter } from "node:events";
 
-export type JobStatus =
-  | "waiting-approval"
-  | "waiting-dependencies"
-  | "running"
-  | "finished"
-  | "rejected";
+export type JobStatus = "waiting-dependencies" | "running" | "finished" | "rejected";
 
-export type ToolName =
-  | "run_bash_host"
-  | "read_file"
-  | "write_file"
-  | "patch_file"
-  | "run_bash_container";
+export type ToolName = "run_bash_container";
 
 export interface JobRecord {
   id: string;
   tool: ToolName;
-  needsApproval: boolean;
-  reason?: string;
-  /** Short, human-readable summary of what this command does, for the approval UI. */
+  /** Short, human-readable summary of what this command does. */
   summary: string;
   after: string[];
   status: JobStatus;
   note?: string;
   result?: unknown;
   createdAt: number;
-  /** Set once the job actually starts running (both gates resolved) — this is when a timeout clock starts. */
+  /** Set once the job actually starts running (its dependency gate resolved) — this is when a timeout clock starts. */
   startedAt?: number;
-  /** Resolved true/false once a human has acted (or immediately true if no approval needed). */
-  approved?: boolean;
   /** Called once when the job is killed while running, to let the tool implementation abort its child process. */
   onKill?: () => void;
   /** Subscribers waiting on this job's terminal state. */
@@ -37,8 +23,8 @@ export interface JobRecord {
 }
 
 /**
- * Whether a finished job actually succeeded: for bash tools, `exitCode === 0` (a null exit code —
- * from a timeout or kill — counts as failure); for file tools, the absence of an `error` field.
+ * Whether a finished job actually succeeded: for bash results, `exitCode === 0` (a null exit code —
+ * from a timeout or kill — counts as failure); otherwise the absence of an `error` field.
  * Non-finished jobs are never "succeeded".
  */
 function didSucceed(job: JobRecord): boolean {
@@ -68,7 +54,7 @@ export class JobStore {
   private nextId = 1;
   /** ids of jobs that depend on this id, for cascade propagation */
   private dependents = new Map<string, Set<string>>();
-  /** Fires "change" on every mutation (create/approve/reject/finish) — for anything that needs to observe the whole store, e.g. the approval-window opener or `wait`. */
+  /** Fires "change" on every mutation (create/reject/finish) — for anything that needs to observe the whole store, e.g. `wait`. */
   public readonly events = new EventEmitter();
 
   private emitChange() {
@@ -76,25 +62,16 @@ export class JobStore {
   }
 
   /** Create a new job record, wire up its `after` dependency links, and compute its initial status. */
-  create(params: {
-    tool: ToolName;
-    needsApproval: boolean;
-    reason?: string;
-    summary: string;
-    after?: string[];
-  }): JobRecord {
+  create(params: { tool: ToolName; summary: string; after?: string[] }): JobRecord {
     const id = String(this.nextId++);
     const after = params.after ?? [];
     const job: JobRecord = {
       id,
       tool: params.tool,
-      needsApproval: params.needsApproval,
-      reason: params.reason,
       summary: params.summary,
       after,
-      status: "waiting-approval",
+      status: "waiting-dependencies",
       createdAt: Date.now(),
-      approved: params.needsApproval ? undefined : true,
       waiters: [],
     };
     this.jobs.set(id, job);
@@ -132,7 +109,7 @@ export class JobStore {
     return "satisfied";
   }
 
-  /** Recompute a job's displayed status from its two gates. Call after any gate-affecting change. */
+  /** Recompute a job's displayed status from its dependency gate. Call after any gate-affecting change. */
   private recomputeStatus(job: JobRecord) {
     if (job.status === "finished" || job.status === "rejected") return;
 
@@ -151,12 +128,7 @@ export class JobStore {
       return;
     }
 
-    const approvalPending = job.needsApproval && job.approved !== true;
-    const depsPending = deps === "pending";
-
-    if (approvalPending) {
-      job.status = "waiting-approval";
-    } else if (depsPending) {
+    if (deps === "pending") {
       job.status = "waiting-dependencies";
     } else if (job.status !== "running") {
       job.status = "running";
@@ -164,7 +136,7 @@ export class JobStore {
     }
   }
 
-  /** Called by a tool implementation once both gates are open, to get the started/running job and proceed. Returns a promise resolved when running starts (or already resolved). */
+  /** Called by a tool implementation once the dependency gate is open, to get the started/running job and proceed. Returns a promise resolved when running starts (or already resolved). */
   async waitUntilRunningOrTerminal(id: string): Promise<JobRecord> {
     const job = this.jobs.get(id);
     if (!job) throw new Error(`Unknown job id ${id}`);
@@ -184,20 +156,7 @@ export class JobStore {
     });
   }
 
-  /** Record human approval for a job (must still be pending). Recomputes status — may move straight to `running` if dependencies are already satisfied. */
-  approve(id: string): JobRecord {
-    const job = this.mustGet(id);
-    if (job.status !== "waiting-approval" && job.status !== "waiting-dependencies") {
-      throw new Error(`Job ${id} is not awaiting approval (status: ${job.status})`);
-    }
-    job.approved = true;
-    this.recomputeStatus(job);
-    this.notifyWaiters(job);
-    this.emitChange();
-    return job;
-  }
-
-  /** Reject a job (human rejection, or `internal:true` for a cascade/kill-triggered rejection), and cascade to anything depending on it. */
+  /** Reject a job (direct, or `internal:true` for a cascade/kill-triggered rejection), and cascade to anything depending on it. */
   reject(id: string, note: string | undefined, internal = false): JobRecord {
     const job = this.mustGet(id);
     if (job.status === "finished" || job.status === "rejected") {
@@ -205,7 +164,6 @@ export class JobStore {
       return job;
     }
     job.status = "rejected";
-    job.approved = false;
     job.note = note;
     this.cascadeReject(job.id);
     this.notifyWaiters(job);
@@ -258,11 +216,7 @@ export class JobStore {
       // the running process's own completion handler will call finish() with killed:true
       return job;
     }
-    const note =
-      job.status === "waiting-approval"
-        ? "Killed via kill command before approval"
-        : "Killed via kill command before dependencies finished";
-    return this.reject(id, note);
+    return this.reject(id, "Killed via kill command before dependencies finished");
   }
 
   /** Ids of every job currently in status `running`. */
