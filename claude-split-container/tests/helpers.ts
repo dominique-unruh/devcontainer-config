@@ -1,25 +1,25 @@
-import { jobStore, type JobStatus } from "../src/jobs.js";
+import { shellStore, type ShellStatus } from "../src/shells.js";
 
-/** Poll the shared jobStore until a job reaches one of the given terminal-ish statuses, or time out. */
-export async function waitForJobStatus(
+/** Poll the shared shellStore until a shell reaches one of the given statuses, or time out. */
+export async function waitForShellStatus(
   id: string,
-  statuses: JobStatus[],
+  statuses: ShellStatus[],
   timeoutMs = 2000
-): Promise<ReturnType<typeof jobStore.get>> {
+): Promise<ReturnType<typeof shellStore.get>> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const job = jobStore.get(id);
-    if (job && statuses.includes(job.status)) return job;
+    const rec = shellStore.get(id);
+    if (rec && statuses.includes(rec.status)) return rec;
     if (Date.now() > deadline) {
-      throw new Error(`job ${id} did not reach [${statuses.join(", ")}] within ${timeoutMs}ms (status: ${job?.status})`);
+      throw new Error(`shell ${id} did not reach [${statuses.join(", ")}] within ${timeoutMs}ms (status: ${rec?.status})`);
     }
     await new Promise((r) => setTimeout(r, 10));
   }
 }
 
-/** Parse the JSON text out of an MCP tool call's content array. */
-export function parseToolResult<T = unknown>(result: { content: Array<{ type: string; text?: string }> }): T {
+/** The plain text of an MCP tool call's first content block. */
+export function toolText(result: { content: Array<{ type: string; text?: string }> }): string {
   const text = result.content[0]?.text;
   if (typeof text !== "string") throw new Error("tool result had no text content");
-  return JSON.parse(text) as T;
+  return text;
 }

@@ -1,48 +1,38 @@
 import { z } from "zod";
-import { jobStore } from "../jobs.js";
+import { shellStore } from "../shells.js";
 
 export const waitShape = {
-  ids: z.array(z.string()).describe("Command ids to wait on."),
-  timeout: z.number().describe("Seconds to wait before giving up, even if none of the ids have finished."),
+  bash_id: z.string().describe("The ID of the background shell to wait on."),
+  timeout: z
+    .number()
+    .describe("Milliseconds to wait for the shell to finish before giving up and returning its current status."),
 };
 
 const WaitArgs = z.object(waitShape);
 
-function terminal(id: string): boolean {
-  const job = jobStore.get(id);
-  return job !== undefined && (job.status === "finished" || job.status === "rejected");
+function text(s: string) {
+  return { content: [{ type: "text" as const, text: s }] };
 }
 
 /**
- * Block until any of `ids` reaches a terminal state (finished/rejected), or `timeout` seconds elapse.
- * Returns current records for every id passed in, so the caller can see which one(s) resolved and
- * re-call with the remaining ids to keep waiting on the rest.
+ * MCP tool handler for `wait`: block until a background shell finishes (or `timeout` ms elapse), then
+ * report its status and exit code. Does not consume the shell's output buffer — read it with
+ * bash_output. Unlike the built-in Bash tools (where the harness auto-notifies on completion), an MCP
+ * server can't push, so this is the blocking alternative to polling bash_output.
  */
 export async function wait(rawArgs: z.infer<typeof WaitArgs>) {
   const args = WaitArgs.parse(rawArgs);
+  const rec = await shellStore.waitForTerminal(args.bash_id, args.timeout);
+  if (!rec) return text(`No background shell with ID: ${args.bash_id}`);
 
-  if (!args.ids.some(terminal)) {
-    await new Promise<void>((resolveWait) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        jobStore.events.off("change", onChange);
-        resolveWait();
-      };
-      const onChange = () => {
-        if (args.ids.some(terminal)) finish();
-      };
-      jobStore.events.on("change", onChange);
-      const timer = setTimeout(finish, args.timeout * 1000);
-      timer.unref();
-    });
+  if (rec.status === "running") {
+    return text(`Shell ${rec.id} still running after ${args.timeout}ms.\n<status>running</status>`);
   }
 
-  const records = args.ids.map((id) => {
-    const job = jobStore.get(id);
-    if (!job) return { id, error: "unknown id" };
-    return { id: job.id, tool: job.tool, status: job.status, note: job.note, result: job.result };
-  });
-  return { content: [{ type: "text" as const, text: JSON.stringify(records, null, 2) }] };
+  const lines = [`<status>${rec.status}</status>`];
+  if (rec.result?.timedOut) lines.push(`<exit_code>timed out</exit_code>`);
+  else if (rec.result?.exitCode !== undefined && rec.result?.exitCode !== null)
+    lines.push(`<exit_code>${rec.result.exitCode}</exit_code>`);
+  else lines.push(`<exit_code>killed</exit_code>`);
+  return text(lines.join("\n"));
 }

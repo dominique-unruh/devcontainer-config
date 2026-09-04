@@ -1,6 +1,6 @@
 ---
 name: split-container
-description: How to work when the claude-split-container MCP server is available — a free devcontainer (run_bash_container) that shares the project dir and is the default for shell work, plus a host that is reached only through the built-in Bash tool, gated by a hook. Use whenever a tool named run_bash_container from a claude-split-container MCP server is present and you need to run commands, edit files, or explore. Covers preferring the container, the `# NOT IN CONTAINER` marker for host commands, keeping host commands auditable, and the background/after job model.
+description: How to work when the claude-split-container MCP server is available — a free devcontainer (run_bash_container) that shares the project dir and is the default for shell work, plus a host that is reached only through the built-in Bash tool, gated by a hook. Use whenever a tool named run_bash_container from a claude-split-container MCP server is present and you need to run commands, edit files, or explore. Covers preferring the container, the `# NOT IN CONTAINER` marker for host commands, keeping host commands auditable, and the built-in-Bash-style background job model (run_in_background / bash_output / kill_shell).
 ---
 
 # Working with a split host/container environment
@@ -91,25 +91,32 @@ A host command runs where a human can see it, so keep it easy to follow:
 
 ## The job model (`run_bash_container`)
 
-`run_bash_container` returns a **command record** with an id. `background`,
-`after`, `status`, `wait`, `kill`, and `running` manage these records.
+The tool surface mirrors Claude Code's own built-in `Bash` / `BashOutput` /
+`KillShell` — same parameters, same background model, just running in the
+container. `run_bash_container` takes `command`, an optional `description`,
+`run_in_background`, and `timeout` in **milliseconds** (optional; default
+120000, max 600000).
 
-- `background: true` returns an id immediately instead of blocking. Fire
-  several independent commands up front, then collect results — keep working
-  while they run.
-- `after: [id, ...]` makes a command wait until those commands have all
-  **succeeded** (exit code 0). If any dependency fails or is killed, the
-  dependent is auto-rejected with a note naming the cause, cascading through
-  the chain. Use it to submit a whole ordered plan at once.
-- `status(ids)` — non-blocking lookup. `wait(ids, timeout)` — block until any
-  of them reaches a terminal state (`timeout` mandatory; re-call with the
-  rest). `running()` — ids currently executing. `kill(id)` — cancel a pending
-  or running command.
+- Foreground (the default) blocks and returns the command's output inline.
+  `timeout` bounds this call.
+- `run_in_background: true` returns a **shell id** immediately instead of
+  blocking. Fire several independent commands up front, then collect their
+  output as they run. A background command runs until it finishes or is
+  killed (the foreground `timeout` doesn't bound it).
+- `bash_output(bash_id, filter?)` reads a background shell's output — only
+  what's **new** since your last read — along with its status and, once it
+  has exited, its exit code. `filter` is an optional regex keeping only
+  matching lines. Poll it to follow a long-running command.
+- `kill_shell(shell_id)` kills a running background shell.
+- `wait(bash_id, timeout)` blocks until that shell finishes or `timeout`
+  **milliseconds** elapse, then reports its status/exit code (it doesn't
+  consume the output buffer — read that with `bash_output`). Use it instead of
+  polling `bash_output` in a loop when you just need to block until done.
+- `list_background_running()` lists the background shells still running.
 
-Timeouts on `run_bash_container` are mandatory in the foreground, optional in
-the background, and the clock starts when the command actually begins running
-(after its dependencies clear), not at submission — so a command can sit
-waiting on `after` without burning its timeout.
+There's no cross-command dependency/ordering mechanism: to order work, either
+run it foreground (each call blocks until done), chain it inside one `command`
+script, or fire a background shell and `wait` on it before starting the next.
 
 ## Starting the container
 

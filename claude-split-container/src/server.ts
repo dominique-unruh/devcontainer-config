@@ -3,10 +3,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import { runBashContainer, runBashContainerShape } from "./tools/runBashContainer.js";
-import { status, statusShape } from "./tools/status.js";
+import { bashOutput, bashOutputShape } from "./tools/bashOutput.js";
+import { killShell, killShellShape } from "./tools/killShell.js";
 import { wait, waitShape } from "./tools/wait.js";
-import { kill, killShape } from "./tools/kill.js";
-import { running, runningShape } from "./tools/running.js";
+import { listBackgroundRunning, listBackgroundRunningShape } from "./tools/listBackgroundRunning.js";
 
 /** Build the MCP server and register every tool this package exposes. */
 function buildServer(): McpServer {
@@ -19,7 +19,8 @@ function buildServer(): McpServer {
       description:
         "Run a bash command inside the project's devcontainer (shares the project dir with the host). " +
         "No approval needed. This is the default way to run shell commands; the built-in Bash tool is " +
-        "host-only and gated.",
+        "host-only and gated. Mirrors the built-in Bash tool: optional `timeout` (ms), and " +
+        "`run_in_background` to return a shell id you read from with bash_output.",
       inputSchema: runBashContainerShape,
       annotations: { title: "container bash", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
@@ -27,47 +28,53 @@ function buildServer(): McpServer {
   );
 
   server.registerTool(
-    "status",
+    "bash_output",
     {
-      title: "Command status",
-      description: "Non-blocking lookup of the current status/result for one or more command ids.",
-      inputSchema: statusShape,
-      annotations: { title: "command status", readOnlyHint: true },
+      title: "Read background shell output",
+      description:
+        "Retrieve output from a background shell started by run_bash_container. Returns only new output " +
+        "since the last read, plus the shell's status and (once exited) its exit code. Mirrors the " +
+        "built-in BashOutput tool.",
+      inputSchema: bashOutputShape,
+      annotations: { title: "read background shell output", readOnlyHint: true },
     },
-    status
+    bashOutput
+  );
+
+  server.registerTool(
+    "kill_shell",
+    {
+      title: "Kill a background shell",
+      description: "Kill a running background shell by its id. Mirrors the built-in KillShell tool.",
+      inputSchema: killShellShape,
+      annotations: { title: "kill background shell", readOnlyHint: false, destructiveHint: true },
+    },
+    killShell
   );
 
   server.registerTool(
     "wait",
     {
-      title: "Wait for a command",
-      description: "Block until any of the given command ids finishes or is rejected, or until timeout.",
+      title: "Wait for a background shell",
+      description:
+        "Block until a background shell finishes (or the given timeout in ms elapses), then report its " +
+        "status and exit code. The MCP alternative to polling bash_output, since (unlike the built-in " +
+        "Bash tools) this server can't auto-notify on completion.",
       inputSchema: waitShape,
-      annotations: { title: "wait for command", readOnlyHint: true },
+      annotations: { title: "wait for background shell", readOnlyHint: true },
     },
     wait
   );
 
   server.registerTool(
-    "kill",
+    "list_background_running",
     {
-      title: "Kill a command",
-      description: "Cancel a pending or running command.",
-      inputSchema: killShape,
-      annotations: { title: "kill command", readOnlyHint: false, destructiveHint: true },
+      title: "List running background shells",
+      description: "List the background shells (started with run_bash_container run_in_background) still running.",
+      inputSchema: listBackgroundRunningShape,
+      annotations: { title: "list running background shells", readOnlyHint: true },
     },
-    kill
-  );
-
-  server.registerTool(
-    "running",
-    {
-      title: "List running commands",
-      description: "Return the ids of all commands currently running.",
-      inputSchema: runningShape,
-      annotations: { title: "list running commands", readOnlyHint: true },
-    },
-    running
+    listBackgroundRunning
   );
 
   return server;

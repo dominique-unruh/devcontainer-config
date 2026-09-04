@@ -143,19 +143,22 @@ dir is shared. Add it to the project's `.gitignore`:
 
 ## Tools
 
-| Tool | Notes |
-|---|---|
-| `run_bash_container` | `devcontainer exec`, output returned inline. Brings the container up on demand. |
-| `status` | look up one or more command ids |
-| `wait` | block until any of several ids finishes/is rejected (mandatory timeout) |
-| `kill` | cancel a pending or running command |
-| `running` | list ids currently running |
+The tool surface mirrors Claude Code's own built-in `Bash`/`BashOutput`/`KillShell`
+tools, so the same mental model applies — only the commands run in the
+devcontainer instead of on the host:
 
-`run_bash_container` accepts `background` (return an id immediately),
-`after` (a list of command ids that must all succeed first), and `timeout`
-(mandatory in the foreground, optional in the background). The clock starts
-when the command actually begins running — after its `after` dependencies
-clear — not at submission.
+| Tool | Mirrors | Notes |
+|---|---|---|
+| `run_bash_container` | `Bash` | `devcontainer exec`. Foreground: blocks, returns output inline. `run_in_background: true`: returns a shell id at once. Brings the container up on demand. |
+| `bash_output` | `BashOutput` | Read a background shell's **new** output since the last read (optional `filter` regex), plus its status and exit code. |
+| `kill_shell` | `KillShell` | Kill a running background shell by id. |
+| `wait` | — | Block until a background shell finishes (or a `timeout` in **ms** elapses), then report its status/exit code. Not a built-in Bash tool — the MCP alternative to polling `bash_output`, since this server can't auto-notify on completion. |
+| `list_background_running` | — | List the background shells still running. |
+
+`run_bash_container` takes the same parameters as the built-in `Bash` tool:
+`command`, an optional `description`, `run_in_background`, and `timeout` in
+**milliseconds** (optional; default 120000, max 600000). The timeout bounds a
+foreground call; a background command runs until it finishes or is killed.
 
 Projects that ship no devcontainer config get a minimal default
 (`ubuntu:24.04` + a non-root `dev` user + host-timezone match), bundled with

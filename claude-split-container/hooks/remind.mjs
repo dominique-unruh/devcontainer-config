@@ -26,8 +26,10 @@ const additionalContext =
   `a very short sentence saying why it can't run in the container — so prefer run_bash_container, and ` +
   `only mark a command that way when it genuinely must run on the host. For files, use the built-in ` +
   `Read/Write/Edit/Glob/Grep tools (the project dir is shared with the container, so no approval is ` +
-  `needed). Job control is available too: status/wait/kill/running, plus background/after on ` +
-  `run_bash_container. This holds for the whole session, including later turns — apply it without ` +
+  `needed). Background jobs work too, mirroring the built-in Bash tools: run_bash_container with ` +
+  `run_in_background returns a shell id; read its output with bash_output, block on it with wait, list ` +
+  `still-running ones with list_background_running, and stop one with kill_shell. ` +
+  `This holds for the whole session, including later turns — apply it without ` +
   `being asked and without loading the split-container skill first; consult that skill for the ` +
   `fuller rationale.`;
 

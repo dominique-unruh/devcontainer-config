@@ -15,6 +15,10 @@ export interface ExecResult {
 export interface ExecHandle {
   result: Promise<ExecResult>;
   kill: () => void;
+  /** Full stdout accumulated so far, untruncated — for reading a still-running command's output incrementally. */
+  liveStdout: () => string;
+  /** Full stderr accumulated so far, untruncated. */
+  liveStderr: () => string;
 }
 
 const MAX_OUTPUT_CHARS = 30_000;
@@ -91,7 +95,7 @@ function runProcess(
     });
   });
 
-  return { result, kill: killNow };
+  return { result, kill: killNow, liveStdout: () => stdout, liveStderr: () => stderr };
 }
 
 /** Run a bash command on the host, `bash -e -c`, cwd = project dir. */
@@ -155,6 +159,10 @@ function devcontainerExec(cfgArgs: string[], command: string, timeoutMs?: number
  */
 export function runBashContainer(command: string, timeoutMs?: number): ExecHandle {
   let active: ExecHandle | undefined;
+  // The handle for the actual `devcontainer exec` process (not the earlier `up` phase). Live output
+  // readers surface only this one's buffers, so a background command's `bash_output` shows the command's
+  // own output and not the noise from bringing the container up.
+  let execHandle: ExecHandle | undefined;
   let killed = false;
 
   const kill = () => {
@@ -180,8 +188,14 @@ export function runBashContainer(command: string, timeoutMs?: number): ExecHandl
       return { exitCode: null, stdout: "", stderr: "killed before start", timedOut: false, killed: true };
     }
     active = devcontainerExec(cfgArgs, command, timeoutMs);
+    execHandle = active;
     return active.result;
   })();
 
-  return { result, kill };
+  return {
+    result,
+    kill,
+    liveStdout: () => execHandle?.liveStdout() ?? "",
+    liveStderr: () => execHandle?.liveStderr() ?? "",
+  };
 }

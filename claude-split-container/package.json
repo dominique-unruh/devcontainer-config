@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "MCP server for dual-environment Claude Code: gated/confirmed host access + free devcontainer access, with a background-job/approval-queue model.",
+  "description": "MCP server for dual-environment Claude Code: gated host access (built-in Bash) + free devcontainer access, exposing run_bash_container/bash_output/kill_shell mirroring the built-in Bash tools.",
   "scripts": {
     "build": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "typecheck": "tsc --noEmit",
