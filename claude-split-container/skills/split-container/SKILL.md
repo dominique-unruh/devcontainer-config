@@ -18,6 +18,14 @@ Two execution targets, very different costs:
 
 Everything below follows from that asymmetry.
 
+Note: the project dir is accessible from the container and from the host and via builtin Read/Write commands.
+But it has a different path (a) in the container and (b) on the host and for Read/Write/etc commands.
+Always make sure you know what the host project path is (will usually be in your context), and what the
+container path is (if unknown, you can use `pwd` in the container, for example).
+
+Transfer of files between host and container possible through the project dir.
+By convention, use .tmp/ subdirectory of the project dir for temporary files that need to be accessed on host and in container. 
+
 ## Files: use the built-in tools
 
 **Use the ordinary built-in `Read`/`Write`/`Edit`/`Glob`/`Grep` tools for
@@ -43,6 +51,17 @@ requires it:
   `devcontainer` CLIs, which live on the host)
 - inspecting host state (processes, services, hardware)
 - a network login or credential the container doesn't have
+
+IMPORTANT: Before running a host command, perform the following checks:
+
+- Can it work in the container (possibly reformulated)?
+- Can you split the command into a host-part and a container-part?
+  (E.g., instead of `pdflatex test.tex; lpr test.pdf`, you would run pdflatex in the container, and then lpr on the host)
+- Can you simplify the host command by piping input/output from/into .tmp/ and processing the input/output in the container?
+- Did you get confused about the location of the project directory?
+  (E.g., you are going to the host because you are want to process `/home/username/myproject/file.txt`,
+  and you cannot find this path in container, but only reason is: the path would be e.g. `/workspace/file.txt`)
+- Check whether the `NOT IN CONTAINER` comment (see below) explains the need of **every** line.
 
 ## Running a host command: the `# NOT IN CONTAINER` marker
 
@@ -84,6 +103,11 @@ A host command runs where a human can see it, so keep it easy to follow:
   the container (and the built-in `Read`/`Grep` tools) can read it with no
   ceremony — do the host-only part on the host, the processing in the
   container.
+- Separate < or > piping by newline, except for very short commands. Like:
+  ```
+  command \
+    > file
+  ```
 - Don't bundle unrelated work into one host call. One command per coherent
   action is easier to reason about.
 - Avoid host-side constructs that hide what will actually run: command
@@ -124,3 +148,8 @@ script, or fire a background shell and `wait` on it before starting the next.
 the first time it's used, so you don't have to. A project that ships no
 devcontainer config gets a minimal default (`ubuntu:24.04` + a non-root `dev`
 user + host-timezone match).
+
+If it seems the container itself is down, or has no network, or some other error
+that seems unrelated to the specific command you are running, inform the user of
+the exact problem instead of just switching to host.
+The user will usually be able to fix the problem or instruct you.
