@@ -18,13 +18,24 @@ Two execution targets, very different costs:
 
 Everything below follows from that asymmetry.
 
-Note: the project dir is accessible from the container and from the host and via builtin Read/Write commands.
-But it has a different path (a) in the container and (b) on the host and for Read/Write/etc commands.
-Always make sure you know what the host project path is (will usually be in your context), and what the
-container path is (if unknown, you can use `pwd` in the container, for example).
+## One project dir, two paths
 
-Transfer of files between host and container possible through the project dir.
-By convention, use .tmp/ subdirectory of the project dir for temporary files that need to be accessed on host and in container. 
+The project dir is shared, but its path is spelled differently in each place:
+
+- The built-in tools (`Read`/`Write`/`Edit`/`Glob`/`Grep`, and host `Bash`)
+  all speak the **host** path.
+- Only `run_bash_container` speaks the **container** path.
+
+Same files, two spellings — the same relative path under two different roots.
+Find both roots once: the host root from your context, the container root via
+`pwd` in the container. Then translate by swapping roots, e.g. host
+`/home/unruh/r/devcontainer-config/src/cli.ts` ↔ container
+`/workspaces/devcontainer-config/src/cli.ts`. When you `Read` a file and then
+want to `grep` it in the container, translate the path first.
+
+Files transfer between host and container through the shared project dir. By
+convention, use the `.tmp/` subdirectory of the project dir for temporary
+files that need to be reached from both the host and the container.
 
 ## Files: use the built-in tools
 
@@ -58,9 +69,11 @@ IMPORTANT: Before running a host command, perform the following checks:
 - Can you split the command into a host-part and a container-part?
   (E.g., instead of `pdflatex test.tex; lpr test.pdf`, you would run pdflatex in the container, and then lpr on the host)
 - Can you simplify the host command by piping input/output from/into .tmp/ and processing the input/output in the container?
-- Did you get confused about the location of the project directory?
-  (E.g., you are going to the host because you are want to process `/home/username/myproject/file.txt`,
-  and you cannot find this path in container, but only reason is: the path would be e.g. `/workspace/file.txt`)
+- Did you get confused about the location of the project directory? (See
+  "One project dir, two paths" above. E.g. you go to the host to process
+  `/home/unruh/r/devcontainer-config/file.txt` because you can't find that
+  path in the container — but it's just the host spelling of the container's
+  `/workspaces/devcontainer-config/file.txt`.)
 - Check whether the `NOT IN CONTAINER` comment (see below) explains the need of **every** line.
 
 ## Running a host command: the `# NOT IN CONTAINER` marker
@@ -102,11 +115,11 @@ A host command runs where a human can see it, so keep it easy to follow:
   free `run_bash_container` command. `.tmp/` is in the shared project dir, so
   the container (and the built-in `Read`/`Grep` tools) can read it with no
   ceremony — do the host-only part on the host, the processing in the
-  container.
-- Separate < or > piping by newline, except for very short commands. Like:
+  container. Put a redirect on its own continuation line unless the command is
+  very short:
   ```
   command \
-    > file
+    > .tmp/output
   ```
 - Don't bundle unrelated work into one host call. One command per coherent
   action is easier to reason about.
@@ -151,5 +164,6 @@ user + host-timezone match).
 
 If it seems the container itself is down, or has no network, or some other error
 that seems unrelated to the specific command you are running, inform the user of
-the exact problem instead of just switching to host.
+the exact problem instead of just switching to host. Never silently fall back to
+the host on a container *outage* — that runs project work in the wrong place.
 The user will usually be able to fix the problem or instruct you.
