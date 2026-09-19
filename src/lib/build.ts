@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import prompts from "prompts";
 import { REPO_DIR } from "./paths.js";
+import { preflightDocker } from "./docker.js";
 
 // @devcontainers/cli is --packages=external (see package.json's build
 // script), so it's resolved from node_modules at runtime like
@@ -41,6 +42,12 @@ function runDevcontainerUp(): Promise<{ ok: boolean; output: string }> {
 // devcontainer CLI's own output unless the build fails — a passing build
 // isn't interesting, a failing one needs the log to debug.
 export async function rebuild(): Promise<boolean> {
+  const dockerErr = await preflightDocker();
+  if (dockerErr) {
+    console.error(`error: ${dockerErr}`);
+    return false;
+  }
+
   const { ok, output } = await runDevcontainerUp();
   if (!ok) {
     process.stdout.write(output);

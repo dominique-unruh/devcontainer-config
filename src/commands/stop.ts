@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { DOCKER_BIN, findRunningContainers } from "../lib/docker.js";
+import { DOCKER_BIN, findRunningContainers, preflightDocker } from "../lib/docker.js";
 
 function dockerStop(ids: string[]): Promise<boolean> {
   return new Promise((resolve) => {
@@ -9,6 +9,13 @@ function dockerStop(ids: string[]): Promise<boolean> {
 }
 
 export async function cmdStop(): Promise<void> {
+  const dockerErr = await preflightDocker();
+  if (dockerErr) {
+    console.error(`error: ${dockerErr}`);
+    process.exitCode = 1;
+    return;
+  }
+
   const ids = await findRunningContainers();
   if (ids.length === 0) {
     console.log("devcontainer not running");

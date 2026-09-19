@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { DEVCONTAINER_BIN } from "../lib/build.js";
-import { findRunningContainers } from "../lib/docker.js";
+import { findRunningContainers, preflightDocker } from "../lib/docker.js";
 
 function runUp(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -20,6 +20,13 @@ function execInherit(args: string[]): Promise<number> {
 }
 
 export async function cmdRun(args: string[]): Promise<void> {
+  const dockerErr = await preflightDocker();
+  if (dockerErr) {
+    console.error(`error: ${dockerErr}`);
+    process.exitCode = 1;
+    return;
+  }
+
   const running = await findRunningContainers();
   if (running.length === 0) {
     console.log("devcontainer not running, starting it...");
