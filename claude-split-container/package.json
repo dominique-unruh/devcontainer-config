@@ -1,6 +1,6 @@
 {
   "name": "claude-split-container",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "MCP server for dual-environment Claude Code: gated host access (built-in Bash) + free devcontainer access, exposing run_bash_container/bash_output/kill_shell mirroring the built-in Bash tools.",

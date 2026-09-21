@@ -2,5 +2,5 @@
   "name": "claude-split-container",
   "author": { "name": "Dominique Unruh" },
   "description": "Split host/container working style: a free devcontainer (run_bash_container) that shares the project dir is the default for shell work, while the host is reachable only through the built-in Bash tool, gated by a hook. Ships the guidance skill for the claude-split-container MCP server.",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
