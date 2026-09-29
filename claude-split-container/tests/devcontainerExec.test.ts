@@ -1,5 +1,32 @@
-import { describe, it, expect } from "vitest";
-import { runBashHost } from "../src/devcontainerExec.js";
+import { describe, it, expect, afterEach } from "vitest";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { configArgs, runBashHost } from "../src/devcontainerExec.js";
+import { PROJECT_DIR } from "../src/sharedDir.js";
+
+describe("configArgs", () => {
+  const projectConfigDir = join(PROJECT_DIR, ".devcontainer");
+
+  afterEach(() => rmSync(projectConfigDir, { recursive: true, force: true }));
+
+  it("passes no config args when the project ships its own devcontainer.json", () => {
+    mkdirSync(projectConfigDir, { recursive: true });
+    writeFileSync(join(projectConfigDir, "devcontainer.json"), "{}");
+    expect(configArgs()).toEqual([]);
+  });
+
+  it("otherwise stages the bundled default outside the project and passes it via --config", () => {
+    const args = configArgs();
+    expect(args[0]).toBe("--config");
+    const staged = args[1];
+    expect(staged.startsWith(process.env.XDG_CACHE_HOME!)).toBe(true);
+    const bundled = join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "default-devcontainer.json");
+    expect(readFileSync(staged, "utf8")).toBe(readFileSync(bundled, "utf8"));
+    // Nothing gets created in the project (the CLI would write its lockfile there under --override-config).
+    expect(existsSync(projectConfigDir)).toBe(false);
+  });
+});
 
 describe("runBashHost", () => {
   it("captures stdout, stderr, and a zero exit code", async () => {
