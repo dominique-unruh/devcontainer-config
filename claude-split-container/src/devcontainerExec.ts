@@ -152,9 +152,16 @@ export function configArgs(): string[] {
   return ["--config", staged];
 }
 
+/**
+ * Workspace args shared by `up` and `exec` so they agree on the container and the in-container
+ * workspace path. The CLI defaults to mounting the enclosing git root (cd'ing into the subdirectory),
+ * which exposes the whole repo when the project is a subdir of it — mount only the project dir.
+ */
+const WORKSPACE_ARGS = ["--workspace-folder", PROJECT_DIR, "--mount-workspace-git-root=false"];
+
 /** Bring the project's devcontainer up (`devcontainer up`) — idempotent, a no-op build if it's already running. */
 function devcontainerUp(cfgArgs: string[], timeoutMs?: number): ExecHandle {
-  return runProcess("devcontainer", ["up", "--workspace-folder", PROJECT_DIR, ...cfgArgs], {
+  return runProcess("devcontainer", ["up", ...WORKSPACE_ARGS, ...cfgArgs], {
     cwd: PROJECT_DIR,
     timeoutMs,
   });
@@ -164,7 +171,7 @@ function devcontainerUp(cfgArgs: string[], timeoutMs?: number): ExecHandle {
 function devcontainerExec(cfgArgs: string[], command: string, timeoutMs?: number): ExecHandle {
   return runProcess(
     "devcontainer",
-    ["exec", "--workspace-folder", PROJECT_DIR, ...cfgArgs, "--", "bash", "-e", "-c", command],
+    ["exec", ...WORKSPACE_ARGS, ...cfgArgs, "--", "bash", "-e", "-c", command],
     { cwd: PROJECT_DIR, timeoutMs }
   );
 }

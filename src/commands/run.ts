@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
-import { DEVCONTAINER_BIN } from "../lib/build.js";
+import { DEVCONTAINER_BIN, WORKSPACE_ARGS } from "../lib/build.js";
 import { findRunningContainers, preflightDocker } from "../lib/docker.js";
 
 function runUp(): Promise<boolean> {
   return new Promise((resolve) => {
-    const child = spawn(DEVCONTAINER_BIN, ["up", "--workspace-folder", "."], { stdio: "inherit" });
+    const child = spawn(DEVCONTAINER_BIN, ["up", ...WORKSPACE_ARGS], { stdio: "inherit" });
     child.on("exit", (code) => resolve(code === 0));
   });
 }
@@ -14,7 +14,7 @@ function runUp(): Promise<boolean> {
 // output behave exactly like a direct `devcontainer exec` would.
 function execInherit(args: string[]): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn(DEVCONTAINER_BIN, ["exec", "--workspace-folder", ".", ...args], { stdio: "inherit" });
+    const child = spawn(DEVCONTAINER_BIN, ["exec", ...WORKSPACE_ARGS, ...args], { stdio: "inherit" });
     child.on("exit", (code) => resolve(code ?? 1));
   });
 }

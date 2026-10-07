@@ -11,6 +11,13 @@ import { preflightDocker } from "./docker.js";
 // of the current project's PATH.
 export const DEVCONTAINER_BIN = path.join(REPO_DIR, "node_modules", ".bin", "devcontainer");
 
+// Shared by every `up`/`exec` call so they agree on which container and
+// which in-container workspace path this is. The devcontainer CLI defaults
+// to mounting the enclosing git root (and cd'ing into the subdirectory),
+// which exposes the whole repo when the project is a subdir of it — mount
+// only the project dir itself instead.
+export const WORKSPACE_ARGS = ["--workspace-folder", ".", "--mount-workspace-git-root=false"];
+
 // Commands mark this when they mutate the project's devcontainer config,
 // instead of building themselves — cli.ts checks it once after the command
 // finishes, so a build runs at most once per process regardless of how
@@ -25,7 +32,7 @@ export function markBuildNeeded(): void {
 function runDevcontainerUp(): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
-    const child = spawn(DEVCONTAINER_BIN, ["up", "--remove-existing-container", "--workspace-folder", "."], {
+    const child = spawn(DEVCONTAINER_BIN, ["up", "--remove-existing-container", ...WORKSPACE_ARGS], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout.on("data", (chunk) => chunks.push(chunk));
