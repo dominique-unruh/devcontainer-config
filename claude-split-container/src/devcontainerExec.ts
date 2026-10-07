@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROJECT_DIR } from "./sharedDir.js";
@@ -125,17 +126,42 @@ function hasProjectConfig(): boolean {
 }
 
 /**
- * devcontainer CLI args selecting the config to use: none (let the CLI auto-discover) if the project
- * ships its own config, otherwise `--override-config` pointing at the bundled default. The same args
- * must be passed to both `up` and `exec` so they agree on which container this is.
+ * Where the bundled default is copied before use: a writable dir outside both the project and the
+ * plugin install. Resolved per call so `XDG_CACHE_HOME` changes (e.g. in tests) take effect.
  */
-function configArgs(): string[] {
-  return hasProjectConfig() ? [] : ["--override-config", DEFAULT_CONFIG_PATH];
+function stagedConfigPath(): string {
+  const cacheDir = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  return join(cacheDir, "claude-split-container", "default", "devcontainer.json");
 }
+
+/**
+ * devcontainer CLI args selecting the config to use: none (let the CLI auto-discover) if the project
+ * ships its own config, otherwise `--config` pointing at a staged copy of the bundled default. The
+ * same args must be passed to both `up` and `exec` so they agree on which container this is.
+ *
+ * Not `--override-config`: with no project config, the CLI still takes
+ * `<project>/.devcontainer/devcontainer.json` as the config path and writes `devcontainer-lock.json`
+ * next to it, failing with ENOENT since that dir doesn't exist. With `--config`, the lockfile goes
+ * next to the staged copy instead. The copy is refreshed on every call so plugin updates take effect.
+ */
+export function configArgs(): string[] {
+  if (hasProjectConfig()) return [];
+  const staged = stagedConfigPath();
+  mkdirSync(dirname(staged), { recursive: true });
+  copyFileSync(DEFAULT_CONFIG_PATH, staged);
+  return ["--config", staged];
+}
+
+/**
+ * Workspace args shared by `up` and `exec` so they agree on the container and the in-container
+ * workspace path. The CLI defaults to mounting the enclosing git root (cd'ing into the subdirectory),
+ * which exposes the whole repo when the project is a subdir of it — mount only the project dir.
+ */
+const WORKSPACE_ARGS = ["--workspace-folder", PROJECT_DIR, "--mount-workspace-git-root=false"];
 
 /** Bring the project's devcontainer up (`devcontainer up`) — idempotent, a no-op build if it's already running. */
 function devcontainerUp(cfgArgs: string[], timeoutMs?: number): ExecHandle {
-  return runProcess("devcontainer", ["up", "--workspace-folder", PROJECT_DIR, ...cfgArgs], {
+  return runProcess("devcontainer", ["up", ...WORKSPACE_ARGS, ...cfgArgs], {
     cwd: PROJECT_DIR,
     timeoutMs,
   });
@@ -145,7 +171,7 @@ function devcontainerUp(cfgArgs: string[], timeoutMs?: number): ExecHandle {
 function devcontainerExec(cfgArgs: string[], command: string, timeoutMs?: number): ExecHandle {
   return runProcess(
     "devcontainer",
-    ["exec", "--workspace-folder", PROJECT_DIR, ...cfgArgs, "--", "bash", "-e", "-c", command],
+    ["exec", ...WORKSPACE_ARGS, ...cfgArgs, "--", "bash", "-e", "-c", command],
     { cwd: PROJECT_DIR, timeoutMs }
   );
 }

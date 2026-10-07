@@ -162,8 +162,10 @@ foreground call; a background command runs until it finishes or is killed.
 
 Projects that ship no devcontainer config get a minimal default
 (`ubuntu:24.04` + a non-root `dev` user + host-timezone match), bundled with
-the plugin at `assets/default-devcontainer.json` and passed via
-`--override-config`.
+the plugin at `assets/default-devcontainer.json`. It's copied to
+`${XDG_CACHE_HOME:-~/.cache}/claude-split-container/default/devcontainer.json`
+and passed via `--config` (not `--override-config`, which makes the CLI write
+`devcontainer-lock.json` into the project's nonexistent `.devcontainer/`).
 
 There are no MCP tools for the host or for files: the host is reached through
 the built-in `Bash` tool (see below), and files through the built-in
