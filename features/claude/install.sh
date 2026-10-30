@@ -4,7 +4,12 @@ set -euo pipefail
 # settings.json merge in configure.sh needs jq, and needs the real
 # remoteUser's $HOME, not root's — install.sh runs as root at build time,
 # so only the package install happens here; the merge itself is deferred
-# to postCreateCommand via configure.sh, staged below.
+# to postCreateCommand via configure.sh, staged below. Features installed
+# since the apt feature ran (e.g. the official node feature) may have
+# wiped the apt lists again — re-fetch only in that case.
+if ! compgen -G "/var/lib/apt/lists/*_Packages*" >/dev/null; then
+  apt-get update
+fi
 apt-get install --no-install-recommends -y jq
 
 # Official feature's `npm install -g` leaves the package dir root-owned

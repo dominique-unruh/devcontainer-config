@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from <no remote>, dir features/apt, content-hash edca29a811e6c84d12050ce3942764acec948f3fadd4a2102bdbc6599ae09300
+# Installed using devcontainer-config from https://github.com/dominique-unruh/devcontainer-config.git, dir features/apt, content-hash 917b0f2543d31a0a57fa5c57f212b4b59d18eea411f44d9c9b0ee35f6abf1787
 set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+packages="${PACKAGES:-}"
 
 apt-get update
+
+if [ -n "$packages" ]; then
+  # shellcheck disable=SC2086
+  apt-get install --no-install-recommends -y $packages
+fi

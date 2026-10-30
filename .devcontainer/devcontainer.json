@@ -1,6 +1,7 @@
 {
   "image": "ubuntu:24.04",
   "remoteUser": "dev",
+  "overrideFeatureInstallOrder": ["./features/apt"],
   "features": {
     "./features/user": {
       "username": "dev"
@@ -12,7 +13,8 @@
     "./features/caveman": {
       "mode": "ultra"
     },
-    "./features/apt": {},
-    "ghcr.io/hwaien/devcontainer-features/match-host-time-zone": {}
+    "./features/apt": {
+      "packages": "libatomic1"
+    }
   }
 }

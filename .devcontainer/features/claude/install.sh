@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from https://github.com/dominique-unruh/devcontainer-config.git, dir features/claude, content-hash 06110b844641926f8b1cbdb02dc438efd39d0a29eb27e95545112e787d41ce72
+# Installed using devcontainer-config from https://github.com/dominique-unruh/devcontainer-config.git, dir features/claude, content-hash e7feff206a6304d547fa6e0f8be49a29c30588aac1ff007603317a6b519b711f
 set -euo pipefail
 
 # settings.json merge in configure.sh needs jq, and needs the real
 # remoteUser's $HOME, not root's — install.sh runs as root at build time,
 # so only the package install happens here; the merge itself is deferred
-# to postCreateCommand via configure.sh, staged below.
+# to postCreateCommand via configure.sh, staged below. Features installed
+# since the apt feature ran (e.g. the official node feature) may have
+# wiped the apt lists again — re-fetch only in that case.
+if ! compgen -G "/var/lib/apt/lists/*_Packages*" >/dev/null; then
+  apt-get update
+fi
 apt-get install --no-install-recommends -y jq
+
+# Official feature's `npm install -g` leaves the package dir root-owned
+# even though the rest of nvm's node_modules tree is dev:nvm group-writable
+# -- breaks Claude Code's self-update (runs as remoteUser later). Align it
+# with the rest of the tree instead of leaving it root-only.
+pkg_dir="$(npm root -g)/@anthropic-ai"
+[ -d "$pkg_dir" ] && chmod -R g+w "$pkg_dir"
 
 install -D -m 0755 configure.sh /usr/local/share/devcontainer-config/claude/configure.sh
 

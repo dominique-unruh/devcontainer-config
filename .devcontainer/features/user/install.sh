@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installed using devcontainer-config from <no remote>, dir features/user, content-hash cb8f9ab4e3e71a7df7953bb98117dd9a5e699f02d34ed80acdd7f5e2143af9e3
+# Installed using devcontainer-config from https://github.com/dominique-unruh/devcontainer-config.git, dir features/user, content-hash f0b344b76e2abcb838c7a592585f9c69fac17709181697ac945583833753ed0d
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -23,3 +23,9 @@ fi
 
 echo "${username} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${username}"
 chmod 0440 "/etc/sudoers.d/${username}"
+
+# devcontainer-feature.json's onCreateCommand (`sudo chmod 1777 /tmp`) relies
+# on the sudo rule above. Hotfix: under podman some later feature's build
+# layer ends up with /tmp at 0755 (cause unknown; a chmod inside the build
+# step doesn't survive the layer commit), breaking every non-root mktemp —
+# e.g. later postCreateCommands. Restored at runtime, before those run.

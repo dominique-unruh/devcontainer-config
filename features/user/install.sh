@@ -22,3 +22,9 @@ fi
 
 echo "${username} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${username}"
 chmod 0440 "/etc/sudoers.d/${username}"
+
+# devcontainer-feature.json's onCreateCommand (`sudo chmod 1777 /tmp`) relies
+# on the sudo rule above. Hotfix: under podman some later feature's build
+# layer ends up with /tmp at 0755 (cause unknown; a chmod inside the build
+# step doesn't survive the layer commit), breaking every non-root mktemp —
+# e.g. later postCreateCommands. Restored at runtime, before those run.

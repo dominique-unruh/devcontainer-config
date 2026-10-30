@@ -9,5 +9,6 @@
       "default": "dev",
       "description": "Name of the non-root user to create."
     }
-  }
+  },
+  "onCreateCommand": "sudo chmod 1777 /tmp"
 }
