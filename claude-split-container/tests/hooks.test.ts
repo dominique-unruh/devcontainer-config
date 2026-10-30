@@ -40,11 +40,13 @@ describe("SessionStart reminder hook", () => {
     expect(out.hookSpecificOutput.additionalContext.length).toBeGreaterThan(0);
   });
 
-  it("steers to run_bash_container and documents the built-in Bash gate", () => {
+  it("steers to run_bash_container, documents the gate, and defers the unlock to the skill", () => {
     const ctx = JSON.parse(runRemind()).hookSpecificOutput.additionalContext;
     expect(ctx).toContain("run_bash_container");
     expect(ctx).toMatch(/built-in Bash/);
-    expect(ctx).toContain("# NOT IN CONTAINER");
+    expect(ctx).toContain("split-container"); // points at the skill
+    // The unlock syntax lives only in the skill, so the hook text must not reveal it.
+    expect(ctx).not.toContain("# NOT IN CONTAINER");
   });
 
   it("no longer references the removed host/file MCP tools", () => {
@@ -61,12 +63,14 @@ describe("SessionStart reminder hook", () => {
 });
 
 describe("gate-bash PreToolUse hook", () => {
-  it("denies a plain command with routing guidance", () => {
+  it("denies a plain command, routing to the container and the skill without revealing the unlock", () => {
     const out = JSON.parse(runGate("grep foo bar"));
     expect(out.hookSpecificOutput.hookEventName).toBe("PreToolUse");
     expect(out.hookSpecificOutput.permissionDecision).toBe("deny");
     expect(out.hookSpecificOutput.permissionDecisionReason).toContain("run_bash_container");
-    expect(out.hookSpecificOutput.permissionDecisionReason).toContain("# NOT IN CONTAINER");
+    expect(out.hookSpecificOutput.permissionDecisionReason).toContain("split-container"); // points at the skill
+    // The deny message must not spell out the unlock syntax — that forces the skill to be read.
+    expect(out.hookSpecificOutput.permissionDecisionReason).not.toContain("# NOT IN CONTAINER");
   });
 
   it("allows a command whose first line opts in with # NOT IN CONTAINER", () => {

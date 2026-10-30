@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// SessionStart hook: state the split-container workflow once, at the start of
-// the session, so the model routes work to run_bash_container without having to
-// be told and without waiting to load the skill.
+// SessionStart hook: state the split-container routing once, at the start of the
+// session, so the model defaults shell work to run_bash_container without having
+// to be told. Kept minimal on purpose: it mirrors the gate-bash deny message and
+// points at the split-container skill for the host/container decision and the
+// unlock syntax, rather than duplicating that guidance here. Forcing the skill to
+// be the single source of the host-command details is deliberate.
 //
 // Deliberately SessionStart rather than UserPromptSubmit: the latter fires on
 // every user prompt and its text stays in the transcript, so the same tokens
@@ -20,18 +23,12 @@ const mode = (process.env.SPLIT_CONTAINER_ENFORCE ?? "all").toLowerCase();
 if (mode === "off") process.exit(0);
 
 const additionalContext =
-  `[claude-split-container active for this session] Run shell commands with run_bash_container ` +
-  `(free, no approval) — it is the default. The built-in Bash tool runs on the host and is denied ` +
-  `by a PreToolUse hook unless its first line is \`# NOT IN CONTAINER: <reason>\`, where <reason> is ` +
-  `a very short sentence saying why it can't run in the container — so prefer run_bash_container, and ` +
-  `only mark a command that way when it genuinely must run on the host. For files, use the built-in ` +
-  `Read/Write/Edit/Glob/Grep tools (the project dir is shared with the container, so no approval is ` +
-  `needed). Background jobs work too, mirroring the built-in Bash tools: run_bash_container with ` +
-  `run_in_background returns a shell id; read its output with bash_output, block on it with wait, list ` +
-  `still-running ones with list_background_running, and stop one with kill_shell. ` +
-  `This holds for the whole session, including later turns — apply it without ` +
-  `being asked and without loading the split-container skill first; consult that skill for the ` +
-  `fuller rationale.`;
+  `[claude-split-container active for this session] Run shell commands in the container with the ` +
+  `run_bash_container MCP tool (free, no approval) — it is the default. The built-in Bash tool runs on ` +
+  `the host and is gated by a PreToolUse hook. For files, use the built-in Read/Write/Edit/Glob/Grep ` +
+  `tools (the project dir is shared with the container). When a command seems to need the host, read ` +
+  `the \`split-container\` skill (invoke it with the Skill tool) and follow its instructions — it covers ` +
+  `how to decide and how to enable a host command. This holds for the whole session, including later turns.`;
 
 process.stdout.write(
   JSON.stringify({
