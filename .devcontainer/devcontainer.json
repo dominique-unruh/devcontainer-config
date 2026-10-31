@@ -7,14 +7,10 @@
       "username": "dev"
     },
     "ghcr.io/devcontainers/features/node:1": {},
-    "./features/claude": {
-      "dangerousPermissions": true
-    },
-    "./features/caveman": {
-      "mode": "ultra"
-    },
     "./features/apt": {
       "packages": "libatomic1"
     }
-  }
+  },
+  "postCreateCommand": "touch ~/.devcontainer-config-created",
+  "postStartCommand": "touch ~/.devcontainer-config-started"
 }
