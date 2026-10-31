@@ -8,6 +8,7 @@ import {
 import { writeDevcontainerJson } from "../lib/devcontainerJson.js";
 import { addFeatures } from "../lib/vendor.js";
 import { markBuildNeeded } from "../lib/build.js";
+import { runAllTests, reportTestResults } from "../lib/tests.js";
 import type { DevcontainerJson } from "../lib/types.js";
 
 // Some features (e.g. claude) symlink container state they want to survive
@@ -50,6 +51,9 @@ export async function cmdInit(): Promise<void> {
   for (const name of result.copied) {
     console.log(`added ${name}`);
   }
+
+  console.log("Running full test sweep...");
+  if (!reportTestResults(await runAllTests())) process.exitCode = 1;
 
   markBuildNeeded();
 }

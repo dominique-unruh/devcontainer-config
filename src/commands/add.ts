@@ -1,8 +1,10 @@
 import { addFeatures } from "../lib/vendor.js";
 import { featureDescription } from "../lib/featureSource.js";
 import { markBuildNeeded } from "../lib/build.js";
+import { runAllTests, reportTestResults } from "../lib/tests.js";
 
-export async function cmdAdd(names: string[]): Promise<void> {
+// runTests: false for callers that run their own sweep afterwards (config).
+export async function cmdAdd(names: string[], { runTests = true } = {}): Promise<void> {
   const result = addFeatures(names);
 
   for (const { name, requiredBy } of result.resolved) {
@@ -12,6 +14,11 @@ export async function cmdAdd(names: string[]): Promise<void> {
   }
   for (const name of result.alreadyPresent) {
     console.log(`${name}: already present, skipped`);
+  }
+
+  if (runTests) {
+    console.log("Running full test sweep...");
+    if (!reportTestResults(await runAllTests())) process.exitCode = 1;
   }
 
   if (result.copied.length > 0) markBuildNeeded();

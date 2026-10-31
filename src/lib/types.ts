@@ -60,6 +60,12 @@ export interface FeatureMeta {
   // makes `devcontainer-config claude <args...>` run `claude <args...>`
   // inside the devcontainer (via cmdRun, starting it first if needed).
   commands?: Record<string, FeatureCommandSpec>;
+  // Vendored .mjs script (same signature as a "custom" test: default export
+  // receiving the parsed devcontainer.json) run on the host right before
+  // every `devcontainer up` this tool starts — for host-side preparation a
+  // feature can't do itself, since install.sh/lifecycle commands all run in
+  // the container. See hooks.ts.
+  beforeUp?: string;
   external?: ExternalFeatureRef;
   // Only present on a *vendored* copy (never in the source repo's own
   // meta.json) — where install.sh's provenance-comment trick doesn't

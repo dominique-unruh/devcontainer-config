@@ -3,8 +3,10 @@ import { DEVCONTAINER_BIN, WORKSPACE_ARGS, discardFailedContainer } from "../lib
 import { findRunningContainers, preflightDocker } from "../lib/docker.js";
 import { readDevcontainerJson } from "../lib/devcontainerJson.js";
 import { checkMarkers } from "../lib/markers.js";
+import { runBeforeUpHooks } from "../lib/hooks.js";
 
-function runUp(): Promise<boolean> {
+async function runUp(): Promise<boolean> {
+  await runBeforeUpHooks();
   return new Promise((resolve) => {
     const child = spawn(DEVCONTAINER_BIN, ["up", ...WORKSPACE_ARGS], { stdio: "inherit" });
     child.on("exit", (code) => resolve(code === 0));

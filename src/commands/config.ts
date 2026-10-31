@@ -166,7 +166,7 @@ export async function cmdConfig(nameArg?: string): Promise<void> {
 
   if (!isVendored(name)) {
     console.log(`${name} isn't vendored yet, adding it (and its dependencies)...`);
-    await cmdAdd([name]);
+    await cmdAdd([name], { runTests: false });
     anyMutation = true;
     await runTestSweep();
   }

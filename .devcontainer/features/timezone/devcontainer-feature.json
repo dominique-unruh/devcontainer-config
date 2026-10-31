@@ -1,0 +1,16 @@
+{
+  "id": "timezone",
+  "version": "1.0.0",
+  "name": "Timezone",
+  "description": "Sets the container's timezone at build time (tzdata + /etc/localtime, no bind mount): the 'timezone' option if set, else the host's zone as recorded by devcontainer-config before the build, else UTC.",
+  "options": {
+    "timezone": {
+      "type": "string",
+      "default": "",
+      "description": "IANA zone, e.g. Europe/Berlin. Empty: use the host's zone (recorded before each build by devcontainer-config)."
+    }
+  },
+  "dependsOn": {
+    "./features/apt": {}
+  }
+}

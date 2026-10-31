@@ -3,6 +3,7 @@ import path from "node:path";
 import prompts from "prompts";
 import { REPO_DIR } from "./paths.js";
 import { preflightDocker, removeProjectContainers } from "./docker.js";
+import { runBeforeUpHooks } from "./hooks.js";
 
 // @devcontainers/cli is --packages=external (see package.json's build
 // script), so it's resolved from node_modules at runtime like
@@ -64,6 +65,7 @@ export async function rebuild(): Promise<boolean> {
     return false;
   }
 
+  await runBeforeUpHooks();
   const { ok, output } = await runDevcontainerUp();
   if (!ok) {
     process.stdout.write(output);

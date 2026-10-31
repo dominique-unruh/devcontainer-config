@@ -1,14 +1,15 @@
 {
   "image": "ubuntu:24.04",
   "remoteUser": "dev",
-  "overrideFeatureInstallOrder": ["./features/apt"],
   "features": {
     "./features/user": {
       "username": "dev"
     },
-    "ghcr.io/devcontainers/features/node:1": {},
     "./features/apt": {
-      "packages": "libatomic1"
+      "packages": "git"
+    },
+    "./features/timezone": {
+      "timezone": ""
     }
   },
   "postCreateCommand": "touch ~/.devcontainer-config-created",
