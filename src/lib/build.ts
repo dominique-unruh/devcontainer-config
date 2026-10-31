@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import prompts from "prompts";
 import { REPO_DIR } from "./paths.js";
-import { preflightDocker } from "./docker.js";
+import { preflightDocker, removeProjectContainers } from "./docker.js";
 
 // @devcontainers/cli is --packages=external (see package.json's build
 // script), so it's resolved from node_modules at runtime like
@@ -45,6 +45,15 @@ function runDevcontainerUp(): Promise<{ ok: boolean; output: string }> {
   });
 }
 
+// Called after any failed `devcontainer up` — see removeProjectContainers()
+// for why the leftover container can't just be left running.
+export async function discardFailedContainer(): Promise<void> {
+  const removed = await removeProjectContainers();
+  if (removed.length > 0) {
+    console.error(`removed the half-set-up container (${removed.map((id) => id.slice(0, 12)).join(", ")}) so it can't be used by accident`);
+  }
+}
+
 // Runs `devcontainer up --remove-existing-container`, swallowing the
 // devcontainer CLI's own output unless the build fails — a passing build
 // isn't interesting, a failing one needs the log to debug.
@@ -59,6 +68,7 @@ export async function rebuild(): Promise<boolean> {
   if (!ok) {
     process.stdout.write(output);
     console.error("error: devcontainer up failed");
+    await discardFailedContainer();
   }
   return ok;
 }

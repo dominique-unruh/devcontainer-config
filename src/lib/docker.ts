@@ -45,9 +45,15 @@ export function preflightDocker(): Promise<string | null> {
 // prints the docker daemon's "is not running", not caught by that string),
 // so probing docker directly instead of matching exec's stderr covers both.
 export function findRunningContainers(): Promise<string[]> {
+  return listContainers(false);
+}
+
+// Same label filter, but `-a` so stopped containers count too.
+function listContainers(all: boolean): Promise<string[]> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
-    const child = spawn(DOCKER_BIN, ["ps", "--filter", `label=devcontainer.local_folder=${process.cwd()}`, "-q"], {
+    const args = ["ps", ...(all ? ["-a"] : []), "--filter", `label=devcontainer.local_folder=${process.cwd()}`, "-q"];
+    const child = spawn(DOCKER_BIN, args, {
       stdio: ["ignore", "pipe", "inherit"],
     });
     child.stdout.on("data", (chunk) => chunks.push(chunk));
@@ -64,5 +70,21 @@ export function findRunningContainers(): Promise<string[]> {
           .filter(Boolean),
       );
     });
+  });
+}
+
+// A failed `devcontainer up` (e.g. a failing postCreateCommand) still leaves
+// the container it created behind, running — and the devcontainer CLI never
+// re-runs a lifecycle command it already attempted, so a later `up` on that
+// container reports success. Removing it forces the next `up` (e.g. via
+// `run`) to start from scratch and surface the failure again. Returns the
+// removed ids.
+export async function removeProjectContainers(): Promise<string[]> {
+  const ids = await listContainers(true);
+  if (ids.length === 0) return [];
+  return new Promise((resolve) => {
+    const child = spawn(DOCKER_BIN, ["rm", "-f", ...ids], { stdio: ["ignore", "ignore", "inherit"] });
+    child.on("error", () => resolve([]));
+    child.on("exit", (code) => resolve(code === 0 ? ids : []));
   });
 }

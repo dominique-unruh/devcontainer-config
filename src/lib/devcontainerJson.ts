@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { parse as parseJsonc, modify, applyEdits, type ParseError, printParseErrorCode } from "jsonc-parser";
 import type { DevcontainerJson } from "./types.js";
 import { DEVCONTAINER_JSON } from "./paths.js";
+import { ensureMarkerCommands } from "./markers.js";
 
 const FORMATTING_OPTIONS = { tabSize: 2, insertSpaces: true, eol: "\n" };
 
@@ -65,6 +66,10 @@ export class DevcontainerDocument {
   removeFeature(ref: string): void {
     this.#edit(["features", ref], undefined);
   }
+
+  setTopLevel(key: string, value: unknown): void {
+    this.#edit([key], value);
+  }
 }
 
 export function loadDevcontainerDocument(): DevcontainerDocument {
@@ -74,7 +79,11 @@ export function loadDevcontainerDocument(): DevcontainerDocument {
   return new DevcontainerDocument(readFileSync(DEVCONTAINER_JSON, "utf8"));
 }
 
+// Every edit of an existing devcontainer.json (add, config's option edits
+// and deletes) goes through here, so this is the one place that makes sure
+// the lifecycle marker commands are present (see markers.ts).
 export function writeDevcontainerDocument(doc: DevcontainerDocument): void {
+  ensureMarkerCommands(doc);
   writeFileSync(DEVCONTAINER_JSON, doc.text);
 }
 
